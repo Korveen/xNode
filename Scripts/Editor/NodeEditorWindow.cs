@@ -185,12 +185,20 @@ namespace XNodeEditor {
             Selection.objects = selection.ToArray();
         }
 
+        // Unity 6.4: OnOpenAsset still takes int; EntityIdToObject exists.
+        // Unity 6.5+: OnOpenAsset takes EntityId. Unity 6.6 deprecates int→EntityId conversion.
+#if UNITY_6000_5_OR_NEWER
+        [OnOpenAsset(0)]
+        public static bool OnOpen(EntityId entityId, int line) {
+            XNode.NodeGraph nodeGraph = EditorUtility.EntityIdToObject(entityId) as XNode.NodeGraph;
+#else
         [OnOpenAsset(0)]
         public static bool OnOpen(int instanceID, int line) {
 #if UNITY_6000_4_OR_NEWER
             XNode.NodeGraph nodeGraph = EditorUtility.EntityIdToObject(instanceID) as XNode.NodeGraph;
 #else
             XNode.NodeGraph nodeGraph = EditorUtility.InstanceIDToObject(instanceID) as XNode.NodeGraph;
+#endif
 #endif
             if (nodeGraph != null) {
                 Open(nodeGraph);
