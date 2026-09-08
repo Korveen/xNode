@@ -49,6 +49,9 @@ namespace XNodeEditor {
         public void Controls() {
             wantsMouseMove = true;
             Event e = Event.current;
+            if (IsPointerOverOverlay() && IsOverlayBlockingEvent(e)) {
+                return;
+            }
             switch (e.type) {
                 case EventType.DragUpdated:
                 case EventType.DragPerform:
@@ -309,7 +312,7 @@ namespace XNodeEditor {
                     break;
                 case EventType.KeyDown:
                     if (EditorGUIUtility.editingTextField || GUIUtility.keyboardControl != 0) break;
-                    else if (e.keyCode == KeyCode.F) Home();
+                    else if (e.keyCode == KeyCode.F && !EditorGUIUtility.editingTextField) FrameSelection();
                     if (NodeEditorUtilities.IsMac()) {
                         if (e.keyCode == KeyCode.Return) RenameSelectedNode();
                     } else {
@@ -380,15 +383,53 @@ namespace XNodeEditor {
 
         /// <summary> Puts all selected nodes in focus. If no nodes are present, resets view and zoom to to origin </summary>
         public void Home() {
-            var nodes = Selection.objects.Where(o => o is XNode.Node).Cast<XNode.Node>().ToList();
-            if (nodes.Count > 0) {
-                Vector2 minPos = nodes.Select(x => x.position).Aggregate((x, y) => new Vector2(Mathf.Min(x.x, y.x), Mathf.Min(x.y, y.y)));
-                Vector2 maxPos = nodes.Select(x => x.position + (nodeSizes.ContainsKey(x) ? nodeSizes[x] : Vector2.zero)).Aggregate((x, y) => new Vector2(Mathf.Max(x.x, y.x), Mathf.Max(x.y, y.y)));
-                panOffset = -(minPos + (maxPos - minPos) / 2f);
-            } else {
-                zoom = 2;
+            FrameSelection();
+        }
+
+        public void FrameSelection() {
+            var nodes = Selection.objects.OfType<XNode.Node>().Where(node => node != null).ToList();
+            if (nodes.Count == 0) FrameAll();
+            else FrameNodes(nodes);
+        }
+
+        public void FrameAll() {
+            if (graph == null) return;
+            var nodes = graph.nodes.Where(node => node != null).ToList();
+            FrameNodes(nodes);
+        }
+
+        private void FrameNodes(List<XNode.Node> nodes) {
+            if (nodes == null || nodes.Count == 0) {
+                zoom = 1f;
                 panOffset = Vector2.zero;
+                return;
             }
+
+            Vector2 min = new Vector2(float.MaxValue, float.MaxValue);
+            Vector2 max = new Vector2(float.MinValue, float.MinValue);
+            for (int i = 0; i < nodes.Count; i++) {
+                XNode.Node node = nodes[i];
+                Vector2 size = nodeSizes.TryGetValue(node, out Vector2 cachedSize)
+                    ? cachedSize
+                    : new Vector2(208f, 80f);
+                min = Vector2.Min(min, node.position);
+                max = Vector2.Max(max, node.position + size);
+            }
+
+            Vector2 center = (min + max) * 0.5f;
+            Vector2 bounds = max - min;
+            float padding = 80f;
+            float viewWidth = Mathf.Max(120f, position.width - (ShowBlackboard ? BlackboardWidth : 0f) - padding);
+            float viewHeight = Mathf.Max(120f, position.height - GetToolbarRect().height - padding);
+            float fitZoom = Mathf.Max(bounds.x / viewWidth, bounds.y / viewHeight, 0.01f);
+            NodeEditorPreferences.Settings settings = NodeEditorPreferences.GetSettings();
+            zoom = Mathf.Clamp(fitZoom, settings.minZoom, settings.maxZoom);
+
+            float blackboard = ShowBlackboard ? BlackboardWidth : 0f;
+            float toolbar = GetToolbarRect().height;
+            panOffset = new Vector2(
+                -center.x - blackboard * 0.5f * zoom,
+                -center.y + toolbar * 0.5f * zoom);
         }
 
         /// <summary> Remove nodes in the graph in Selection.objects</summary>

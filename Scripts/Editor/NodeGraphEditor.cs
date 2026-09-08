@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -16,6 +16,9 @@ namespace XNodeEditor {
         protected bool isRenaming;
 
         public virtual void OnGUI() { }
+
+        /// <summary> Extra toolbar controls for a specific graph type. Drawn inside the window toolbar. </summary>
+        public virtual void OnToolbarGUI() { }
 
         /// <summary> Called when opened by NodeEditorWindow </summary>
         public virtual void OnOpen() { }

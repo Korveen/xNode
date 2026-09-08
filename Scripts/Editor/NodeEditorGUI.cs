@@ -25,18 +25,32 @@ namespace XNodeEditor {
             Matrix4x4 m = GUI.matrix;
             if (graph == null) return;
             ValidateGraphEditor();
+            RefreshHighlightHasMatches();
+
+            DrawToolbar(0f, true);
+            if (ShowBlackboard) BlackboardEditorPanel.Draw(this, 0f);
+
             Controls();
 
             DrawGrid(position, zoom, panOffset);
             DrawConnections();
             DrawDraggedConnection();
+
+            EventType graphEventType = e.type;
+            bool blockGraphPointer = IsPointerOverOverlay() && IsOverlayBlockingEvent(e);
+            if (blockGraphPointer) e.type = EventType.Used;
             DrawNodes();
+            if (blockGraphPointer) e.type = graphEventType;
+
             DrawSelectionBox();
             DrawTooltip();
-            DrawToolbar();
-            graphEditor.OnGUI();
 
-            // Run and reset onLateGUI
+            ExitZoomedGUI(m);
+            GUI.color = Color.white;
+            DrawToolbar(topPadding, false);
+            graphEditor.OnGUI();
+            if (ShowBlackboard) BlackboardEditorPanel.Draw(this, topPadding);
+
             if (onLateGUI != null) {
                 onLateGUI();
                 onLateGUI = null;
@@ -65,6 +79,11 @@ namespace XNodeEditor {
             GUI.matrix = Matrix4x4.TRS(offset, Quaternion.identity, Vector3.one);
         }
 
+        private static void ExitZoomedGUI(Matrix4x4 windowMatrix) {
+            GUI.EndClip();
+            GUI.matrix = windowMatrix;
+        }
+
         public void DrawGrid(Rect rect, float zoom, Vector2 panOffset) {
 
             rect.position = Vector2.zero;
@@ -89,27 +108,78 @@ namespace XNodeEditor {
             GUI.DrawTextureWithTexCoords(rect, gridTex, new Rect(tileOffset, tileAmount));
             GUI.DrawTextureWithTexCoords(rect, crossTex, new Rect(tileOffset + new Vector2(0.5f, 0.5f), tileAmount));
         }
-        
-        private void DrawToolbar() {
+
+        private void DrawToolbar(float originY, bool inputPass) {
+            Rect rect = GetToolbarRect(originY);
+            EditorGUI.DrawRect(rect, new Color(0.18f, 0.18f, 0.18f, 1f));
+            GUILayout.BeginArea(rect);
             GUILayout.BeginHorizontal(EditorStyles.toolbar);
             {
-                GUILayout.Space(2);
-                GUILayout.Label(graph.name, EditorStyles.boldLabel);
-                GUILayout.Space(10);
-
-                // Draw scale bar
+                GUILayout.Space(4);
                 GUILayout.Label("Scale", EditorStyles.miniLabel);
                 var newZoom = GUILayout.HorizontalSlider(
-                    zoom, 1f, 5f, GUILayout.MinWidth(40), GUILayout.MaxWidth(100)
+                    zoom, 1f, 5f, GUILayout.MinWidth(40), GUILayout.MaxWidth(80)
                 );
                 GUILayout.Label(zoom.ToString("0.0#x"), EditorStyles.miniLabel, GUILayout.Width(30));
-                if (Math.Abs(newZoom - zoom) > Mathf.Epsilon) {
+                if (inputPass && Math.Abs(newZoom - zoom) > Mathf.Epsilon) {
                     zoom = newZoom;
                 }
-                
+
+                if (ToolbarButton(new GUIContent("Frame", "Frame selection. F"), 48f, inputPass)) {
+                    FrameSelection();
+                }
+                if (ToolbarButton(new GUIContent("All", "Fit all nodes"), 32f, inputPass)) {
+                    FrameAll();
+                }
+                if (ToolbarButton(new GUIContent("Ping", "Ping graph asset in Project"), 40f, inputPass)) {
+                    EditorGUIUtility.PingObject(graph);
+                }
+
+                GUILayout.Space(8);
+                DrawBlackboardVariableFilter(inputPass);
+
+                if (graphEditor != null) graphEditor.OnToolbarGUI();
+
+                if (IsHighlightFilterActive && !HighlightHasMatches) {
+                    GUILayout.Label("No matches", EditorStyles.miniLabel);
+                }
+
                 GUILayout.FlexibleSpace();
+                bool showBlackboard = GUILayout.Toggle(
+                    ShowBlackboard,
+                    "Blackboard",
+                    EditorStyles.toolbarButton,
+                    GUILayout.Width(85));
+                if (inputPass) ShowBlackboard = showBlackboard;
             }
             GUILayout.EndHorizontal();
+            GUILayout.EndArea();
+        }
+
+        private static bool ToolbarButton(GUIContent content, float width, bool inputPass) {
+            bool pressed = GUILayout.Button(content, EditorStyles.toolbarButton, GUILayout.Width(width));
+            return inputPass && pressed;
+        }
+
+        private void DrawBlackboardVariableFilter(bool applyInput) {
+            if (graph?.BlackboardDefinition == null) return;
+            IReadOnlyList<XNode.BlackboardVariable> variables = graph.BlackboardDefinition.Variables;
+            var labels = new string[variables.Count + 1];
+            labels[0] = "Variable: None";
+            int selected = 0;
+            for (int i = 0; i < variables.Count; i++) {
+                XNode.BlackboardVariable variable = variables[i];
+                labels[i + 1] = variable != null ? variable.Name : "<null>";
+                if (variable != null && variable.Id == HighlightedVariableId) selected = i + 1;
+            }
+
+            GUILayout.Label("Uses", EditorStyles.miniLabel);
+            int next = EditorGUILayout.Popup(selected, labels, EditorStyles.toolbarPopup, GUILayout.Width(140));
+            if (!applyInput || next == selected) return;
+            HighlightedVariableId = next <= 0 || variables[next - 1] == null
+                ? ""
+                : variables[next - 1].Id;
+            Repaint();
         }
 
         public void DrawSelectionBox() {
@@ -374,13 +444,18 @@ namespace XNodeEditor {
                     for (int k = 0; k < output.ConnectionCount; k++) {
                         XNode.NodePort input = output.GetConnection(k);
 
+                        // Error handling
+                        if (input == null) continue; //If a script has been updated and the port doesn't exist, it is removed and null is returned. If this happens, return.
+
                         Gradient noodleGradient = graphEditor.GetNoodleGradient(output, input);
+                        if (HighlightHasMatches &&
+                            !IsNodeHighlighted(node) &&
+                            !IsNodeHighlighted(input.node)) {
+                            noodleGradient = DimGradient(noodleGradient);
+                        }
                         float noodleThickness = graphEditor.GetNoodleThickness(output, input);
                         NoodlePath noodlePath = graphEditor.GetNoodlePath(output, input);
                         NoodleStroke noodleStroke = graphEditor.GetNoodleStroke(output, input);
-
-                        // Error handling
-                        if (input == null) continue; //If a script has been updated and the port doesn't exist, it is removed and null is returned. If this happens, return.
                         if (!input.IsConnectedTo(output)) input.Connect(output);
                         Rect toRect;
                         if (!_portConnectionPoints.TryGetValue(input, out toRect)) continue;
@@ -464,7 +539,11 @@ namespace XNodeEditor {
             for (int n = 0; n < graph.nodes.Count; n++) {
                 // Skip null nodes. The user could be in the process of renaming scripts, so removing them at this point is not advisable.
                 if (graph.nodes[n] == null) continue;
-                if (n >= graph.nodes.Count) return;
+                if (n >= graph.nodes.Count) {
+                    GUI.color = guiColor;
+                    EndZoomed(position, zoom, topPadding);
+                    return;
+                }
                 XNode.Node node = graph.nodes[n];
 
                 // Culling
@@ -476,7 +555,9 @@ namespace XNodeEditor {
                     }
                 } else if (culledNodes.Contains(node)) continue;
 
-                if (e.type == EventType.Repaint) {
+                bool drawFields = ShouldDrawNodeFields || !nodeSizes.ContainsKey(node);
+
+                if (e.type == EventType.Repaint && drawFields) {
                     removeEntries.Clear();
                     foreach (var kvp in _portConnectionPoints)
                         if (kvp.Key.node == node) removeEntries.Add(kvp.Key);
@@ -497,27 +578,41 @@ namespace XNodeEditor {
 
                 bool selected = selectionCache.Contains(graph.nodes[n]);
 
+                bool highlighted = IsNodeHighlighted(node);
+                Color tint = nodeEditor.GetTint();
+                Color contentColor = guiColor;
+                if (HighlightHasMatches && !highlighted) {
+                    tint = DimColor(tint);
+                    contentColor = DimColor(guiColor);
+                }
+
                 if (selected) {
                     GUIStyle style = new GUIStyle(nodeEditor.GetBodyStyle());
                     GUIStyle highlightStyle = new GUIStyle(nodeEditor.GetBodyHighlightStyle());
                     highlightStyle.padding = style.padding;
                     style.padding = new RectOffset();
-                    GUI.color = nodeEditor.GetTint();
+                    GUI.color = tint;
                     GUILayout.BeginVertical(style);
                     GUI.color = NodeEditorPreferences.GetSettings().highlightColor;
                     GUILayout.BeginVertical(new GUIStyle(highlightStyle));
                 } else {
                     GUIStyle style = new GUIStyle(nodeEditor.GetBodyStyle());
-                    GUI.color = nodeEditor.GetTint();
+                    GUI.color = tint;
                     GUILayout.BeginVertical(style);
                 }
 
-                GUI.color = guiColor;
+                GUI.color = contentColor;
                 EditorGUI.BeginChangeCheck();
 
                 //Draw node contents
                 nodeEditor.OnHeaderGUI();
-                nodeEditor.OnBodyGUI();
+                if (drawFields) {
+                    nodeEditor.OnBodyGUI();
+                } else {
+                    Vector2 cachedSize = nodeSizes[node];
+                    float reservedHeight = Mathf.Max(0f, cachedSize.y - 30f);
+                    GUILayout.Space(reservedHeight);
+                }
 
                 //If user changed a value, notify other scripts through onUpdateNode
                 if (EditorGUI.EndChangeCheck()) {
@@ -529,7 +624,7 @@ namespace XNodeEditor {
                 GUILayout.EndVertical();
 
                 //Cache data about the node for next frame
-                if (e.type == EventType.Repaint) {
+                if (e.type == EventType.Repaint && drawFields) {
                     Vector2 size = GUILayoutUtility.GetLastRect().size;
                     if (nodeSizes.ContainsKey(node)) nodeSizes[node] = size;
                     else nodeSizes.Add(node, size);
@@ -576,12 +671,32 @@ namespace XNodeEditor {
             }
 
             if (e.type != EventType.Layout && currentActivity == NodeActivity.DragGrid) Selection.objects = preSelection.ToArray();
+            GUI.color = guiColor;
             EndZoomed(position, zoom, topPadding);
 
             //If a change in is detected in the selected node, call OnValidate method.
             //This is done through reflection because OnValidate is only relevant in editor,
             //and thus, the code should not be included in build.
             if (onValidate != null && EditorGUI.EndChangeCheck()) onValidate.Invoke(Selection.activeObject, null);
+        }
+
+        private static Color DimColor(Color color) {
+            return new Color(color.r * 0.45f, color.g * 0.45f, color.b * 0.45f, color.a * 0.45f);
+        }
+
+        private static Gradient DimGradient(Gradient gradient) {
+            if (gradient == null) return null;
+            GradientColorKey[] colors = gradient.colorKeys;
+            GradientAlphaKey[] alphas = gradient.alphaKeys;
+            for (int i = 0; i < colors.Length; i++) {
+                colors[i].color = DimColor(colors[i].color);
+            }
+            for (int i = 0; i < alphas.Length; i++) {
+                alphas[i].alpha *= 0.35f;
+            }
+            Gradient dimmed = new Gradient();
+            dimmed.SetKeys(colors, alphas);
+            return dimmed;
         }
 
         private bool ShouldBeCulled(XNode.Node node) {

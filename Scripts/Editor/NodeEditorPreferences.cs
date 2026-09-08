@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEngine;
@@ -32,6 +32,7 @@ namespace XNodeEditor {
             [UnityEngine.Serialization.FormerlySerializedAs("zoomOutLimit")]
             public float maxZoom = 5f;
             public float minZoom = 1f;
+            public float compactNodeZoom = 1.5f;
             public Color32 tintColor = new Color32(90, 97, 105, 255);
             public Color32 highlightColor = new Color32(255, 255, 255, 255);
             public bool gridSnap = true;
@@ -139,6 +140,11 @@ namespace XNodeEditor {
             EditorGUI.indentLevel++;
             settings.maxZoom = EditorGUILayout.FloatField(new GUIContent("Max", "Upper limit to zoom"), settings.maxZoom);
             settings.minZoom = EditorGUILayout.FloatField(new GUIContent("Min", "Lower limit to zoom"), settings.minZoom);
+            settings.compactNodeZoom = EditorGUILayout.FloatField(
+                new GUIContent(
+                    "Hide Fields At",
+                    "When Scale is at least this value, node fields are not drawn. Size is kept. 0 disables."),
+                settings.compactNodeZoom);
             EditorGUI.indentLevel--;
             settings.gridLineColor = EditorGUILayout.ColorField("Color", settings.gridLineColor);
             settings.gridBgColor = EditorGUILayout.ColorField(" ", settings.gridBgColor);

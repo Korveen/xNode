@@ -73,6 +73,135 @@ namespace XNodeEditor {
         private Vector2 _panOffset;
         public float zoom { get { return _zoom; } set { _zoom = Mathf.Clamp(value, NodeEditorPreferences.GetSettings().minZoom, NodeEditorPreferences.GetSettings().maxZoom); Repaint(); } }
         private float _zoom = 1;
+        [SerializeField] private bool showBlackboard;
+        [SerializeField] private float blackboardWidth = 300f;
+        [SerializeField] private string highlightedVariableId = "";
+
+        internal bool ShowBlackboard {
+            get => showBlackboard;
+            set {
+                showBlackboard = value;
+                Repaint();
+            }
+        }
+
+        internal float BlackboardWidth {
+            get => blackboardWidth;
+            set => blackboardWidth = Mathf.Clamp(value, 220f, 520f);
+        }
+
+        public const float OverlayToolbarHeight = 21f;
+
+        public int TabPadding => isDocked() ? 19 : 22;
+
+        internal Rect GetToolbarHitRect() {
+            return new Rect(0f, 0f, position.width, OverlayToolbarHeight);
+        }
+
+        internal Rect GetBlackboardHitRect() {
+            return new Rect(
+                Mathf.Max(0f, position.width - BlackboardWidth),
+                OverlayToolbarHeight,
+                BlackboardWidth,
+                Mathf.Max(0f, position.height - OverlayToolbarHeight));
+        }
+
+        internal Rect GetToolbarRect(float originY = 0f) {
+            return new Rect(0f, originY, position.width, OverlayToolbarHeight);
+        }
+
+        internal Rect GetBlackboardRect(float originY = 0f) {
+            float y = originY + OverlayToolbarHeight;
+            return new Rect(
+                Mathf.Max(0f, position.width - BlackboardWidth),
+                y,
+                BlackboardWidth,
+                Mathf.Max(0f, position.height - y));
+        }
+
+        internal bool IsPointerOverOverlay() {
+            Vector2 mouse = Event.current.mousePosition;
+            if (GetToolbarHitRect().Contains(mouse)) return true;
+            return ShowBlackboard && GetBlackboardHitRect().Contains(mouse);
+        }
+
+        internal static bool IsOverlayBlockingEvent(Event e) {
+            return e.isMouse ||
+                   e.type == EventType.ScrollWheel ||
+                   e.type == EventType.ContextClick ||
+                   e.type == EventType.DragUpdated ||
+                   e.type == EventType.DragPerform;
+        }
+
+        internal bool ShouldDrawNodeFields {
+            get {
+                float compactZoom = NodeEditorPreferences.GetSettings().compactNodeZoom;
+                return compactZoom <= 0f || zoom < compactZoom;
+            }
+        }
+
+        internal string HighlightedVariableId {
+            get => highlightedVariableId ?? "";
+            set => highlightedVariableId = value ?? "";
+        }
+
+        internal bool IsHighlightFilterActive => !string.IsNullOrEmpty(highlightedVariableId);
+
+        internal bool HighlightHasMatches { get; private set; }
+
+        internal void RefreshHighlightHasMatches() {
+            HighlightHasMatches = false;
+            if (!IsHighlightFilterActive || graph?.nodes == null) return;
+            for (int i = 0; i < graph.nodes.Count; i++) {
+                XNode.Node node = graph.nodes[i];
+                if (node != null && IsNodeHighlighted(node)) {
+                    HighlightHasMatches = true;
+                    return;
+                }
+            }
+        }
+
+        internal bool IsNodeHighlighted(XNode.Node node) {
+            if (node == null || !IsHighlightFilterActive) return true;
+            if (string.IsNullOrEmpty(highlightedVariableId)) return true;
+            if (NodeReferencesVariable(node, highlightedVariableId)) return true;
+
+            foreach (XNode.NodePort input in node.Inputs) {
+                if (input == null) continue;
+                for (int i = 0; i < input.ConnectionCount; i++) {
+                    XNode.NodePort connection = input.GetConnection(i);
+                    if (connection != null && NodeReferencesVariable(connection.node, highlightedVariableId)) {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        internal void ToggleHighlightedVariable(string variableId) {
+            highlightedVariableId = highlightedVariableId == variableId ? "" : variableId ?? "";
+            Repaint();
+        }
+
+        private static bool NodeReferencesVariable(XNode.Node node, string variableId) {
+            if (node == null || string.IsNullOrEmpty(variableId)) return false;
+
+            SerializedObject serializedNode = new SerializedObject(node);
+            SerializedProperty iterator = serializedNode.GetIterator();
+            bool enterChildren = true;
+            while (iterator.Next(enterChildren)) {
+                enterChildren = iterator.propertyType == SerializedPropertyType.Generic ||
+                                iterator.propertyType == SerializedPropertyType.ManagedReference;
+                if (iterator.propertyType == SerializedPropertyType.String &&
+                    iterator.name == "variableId" &&
+                    iterator.stringValue == variableId) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
 
         void OnFocus() {
             current = this;
