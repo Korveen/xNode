@@ -45,11 +45,11 @@ namespace XNodeEditor {
             DrawSelectionBox();
             DrawTooltip();
 
-            ExitZoomedGUI(m);
+            RestoreWindowClip(m);
             GUI.color = Color.white;
-            DrawToolbar(topPadding, false);
+            DrawToolbar(0f, false);
             graphEditor.OnGUI();
-            if (ShowBlackboard) BlackboardEditorPanel.Draw(this, topPadding);
+            if (ShowBlackboard) BlackboardEditorPanel.Draw(this, 0f);
 
             if (onLateGUI != null) {
                 onLateGUI();
@@ -79,9 +79,14 @@ namespace XNodeEditor {
             GUI.matrix = Matrix4x4.TRS(offset, Quaternion.identity, Vector3.one);
         }
 
-        private static void ExitZoomedGUI(Matrix4x4 windowMatrix) {
+        private void RestoreWindowClip(Matrix4x4 windowMatrix) {
             GUI.EndClip();
             GUI.matrix = windowMatrix;
+            GUI.BeginClip(new Rect(
+                0f,
+                topPadding,
+                position.width,
+                Mathf.Max(0f, position.height - topPadding)));
         }
 
         public void DrawGrid(Rect rect, float zoom, Vector2 panOffset) {
