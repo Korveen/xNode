@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEditor;
 using UnityEditor.Callbacks;
 using UnityEngine;
@@ -75,6 +76,7 @@ namespace XNodeEditor {
         private float _zoom = 1;
         [SerializeField] private bool showBlackboard;
         [SerializeField] private float blackboardWidth = 300f;
+        [SerializeField] private string nodeSearch = "";
         [SerializeField] private string highlightedVariableId = "";
 
         internal bool ShowBlackboard {
@@ -145,7 +147,20 @@ namespace XNodeEditor {
             set => highlightedVariableId = value ?? "";
         }
 
-        internal bool IsHighlightFilterActive => !string.IsNullOrEmpty(highlightedVariableId);
+        internal string NodeSearch {
+            get => nodeSearch ?? "";
+            set {
+                string normalized = value ?? "";
+                if (nodeSearch == normalized) return;
+                nodeSearch = normalized;
+                Repaint();
+            }
+        }
+
+        internal bool IsNodeSearchActive => !string.IsNullOrWhiteSpace(NodeSearch);
+
+        internal bool IsHighlightFilterActive =>
+            IsNodeSearchActive || !string.IsNullOrEmpty(highlightedVariableId);
 
         internal bool HighlightHasMatches { get; private set; }
 
@@ -163,6 +178,14 @@ namespace XNodeEditor {
 
         internal bool IsNodeHighlighted(XNode.Node node) {
             if (node == null || !IsHighlightFilterActive) return true;
+
+            if (IsNodeSearchActive) {
+                string query = NodeSearch.Trim();
+                if (!NodeMatchesSearch(node, query)) {
+                    return false;
+                }
+            }
+
             if (string.IsNullOrEmpty(highlightedVariableId)) return true;
             if (NodeReferencesVariable(node, highlightedVariableId)) return true;
 
@@ -177,6 +200,37 @@ namespace XNodeEditor {
             }
 
             return false;
+        }
+
+        internal XNode.Node[] GetNodeSearchMatches() {
+            if (!IsNodeSearchActive || graph?.nodes == null) return Array.Empty<XNode.Node>();
+            string query = NodeSearch.Trim();
+            return graph.nodes
+                .Where(node =>
+                    NodeMatchesSearch(node, query))
+                .ToArray();
+        }
+
+        public static bool NodeMatchesSearch(XNode.Node node, string query) {
+            if (node == null || string.IsNullOrWhiteSpace(query)) return false;
+            string normalized = query.Trim();
+            return node.name.IndexOf(normalized, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   node.GetType().Name.IndexOf(normalized, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        internal void FrameNodeSearchResult(int direction) {
+            XNode.Node[] matches = GetNodeSearchMatches();
+            if (matches.Length == 0) return;
+
+            int index = Array.IndexOf(matches, Selection.activeObject as XNode.Node);
+            if (index < 0) {
+                index = direction < 0 ? matches.Length - 1 : 0;
+            } else {
+                index = (index + direction + matches.Length) % matches.Length;
+            }
+
+            Selection.activeObject = matches[index];
+            FrameSelection();
         }
 
         internal void ToggleHighlightedVariable(string variableId) {
