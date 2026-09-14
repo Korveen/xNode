@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Serialization;
@@ -65,7 +66,6 @@ namespace XNodeEditor {
             }
 
             public void OnAfterDeserialize() {
-                // Deserialize typeColorsData
                 typeColors = new Dictionary<string, Color>();
                 string[] data = typeColorsData.Split(new char[] { ',' }, StringSplitOptions.RemoveEmptyEntries);
                 for (int i = 0; i < data.Length; i += 2) {
@@ -77,7 +77,6 @@ namespace XNodeEditor {
             }
 
             public void OnBeforeSerialize() {
-                // Serialize typeColors
                 typeColorsData = "";
                 foreach (var item in typeColors) {
                     typeColorsData += item.Key + "," + ColorUtility.ToHtmlStringRGB(item.Value) + ",";
@@ -87,25 +86,32 @@ namespace XNodeEditor {
 
         /// <summary> Get settings of current active editor </summary>
         public static Settings GetSettings() {
-            if (XNodeEditor.NodeEditorWindow.current == null) return new Settings();
+            PreferenceGroup group = GetActivePreferenceGroup();
+            VerifyLoaded(group);
+            lastKey = group.key;
+            return settings[group.key];
+        }
 
-            if (lastEditor != XNodeEditor.NodeEditorWindow.current.graphEditor) {
-                object[] attribs = XNodeEditor.NodeEditorWindow.current.graphEditor.GetType().GetCustomAttributes(typeof(XNodeEditor.NodeGraphEditor.CustomNodeGraphEditorAttribute), true);
+        private static PreferenceGroup GetActivePreferenceGroup() {
+            if (NodeEditorWindow.current != null && NodeEditorWindow.current.graphEditor != null) {
+                Type editorType = NodeEditorWindow.current.graphEditor.GetType();
+                object[] attribs = editorType.GetCustomAttributes(typeof(NodeGraphEditor.CustomNodeGraphEditorAttribute), true);
                 if (attribs.Length == 1) {
-                    XNodeEditor.NodeGraphEditor.CustomNodeGraphEditorAttribute attrib = attribs[0] as XNodeEditor.NodeGraphEditor.CustomNodeGraphEditorAttribute;
-                    lastEditor = XNodeEditor.NodeEditorWindow.current.graphEditor;
-                    lastKey = attrib.editorPrefsKey;
-                } else return null;
+                    NodeGraphEditor.CustomNodeGraphEditorAttribute attrib = attribs[0] as NodeGraphEditor.CustomNodeGraphEditorAttribute;
+                    lastEditor = NodeEditorWindow.current.graphEditor;
+                    return new PreferenceGroup(attrib.editorPrefsKey, PrefsLabel(attrib), editorType);
+                }
             }
-            if (!settings.ContainsKey(lastKey)) VerifyLoaded();
-            return settings[lastKey];
+
+            PreferenceGroup[] groups = GetPreferenceGroups();
+            return groups.Length > 0 ? groups[0] : PreferenceGroup.Default;
         }
 
 #if UNITY_2019_1_OR_NEWER
         [SettingsProvider]
         public static SettingsProvider CreateXNodeSettingsProvider() {
             SettingsProvider provider = new SettingsProvider("Preferences/Node Editor", SettingsScope.User) {
-                guiHandler = (searchContext) => { XNodeEditor.NodeEditorPreferences.PreferencesGUI(); },
+                guiHandler = (searchContext) => { PreferencesGUI(); },
                 keywords = new HashSet<string>(new [] { "xNode", "node", "editor", "graph", "connections", "noodles", "ports" })
             };
             return provider;
@@ -116,130 +122,255 @@ namespace XNodeEditor {
         [PreferenceItem("Node Editor")]
 #endif
         private static void PreferencesGUI() {
-            VerifyLoaded();
-            Settings settings = NodeEditorPreferences.settings[lastKey];
+            PreferenceGroup[] groups = GetPreferenceGroups();
 
-            if (GUILayout.Button(new GUIContent("Documentation", "https://github.com/Siccity/xNode/wiki"), GUILayout.Width(100))) Application.OpenURL("https://github.com/Siccity/xNode/wiki");
-            EditorGUILayout.Space();
+            if (GUILayout.Button(new GUIContent("Documentation", "https://github.com/Siccity/xNode/wiki"), GUILayout.Width(100))) {
+                Application.OpenURL("https://github.com/Siccity/xNode/wiki");
+            }
 
-            NodeSettingsGUI(lastKey, settings);
-            GridSettingsGUI(lastKey, settings);
-            SystemSettingsGUI(lastKey, settings);
-            TypeColorsGUI(lastKey, settings);
-            if (GUILayout.Button(new GUIContent("Set Default", "Reset all values to default"), GUILayout.Width(120))) {
+            DrawSection("Connections", () => {
+                if (groups.Length > 1) {
+                    EditorGUILayout.HelpBox("Path, thickness and stroke are stored per graph type.", MessageType.None);
+                }
+                for (int i = 0; i < groups.Length; i++) {
+                    DrawConnectionBlock(groups[i], true);
+                }
+            });
+
+            Settings shared = GetSharedSettings();
+            DrawSection("Appearance", () => DrawAppearanceGUI(shared, groups));
+            DrawSection("Grid", () => DrawGridGUI(shared, groups));
+            DrawSection("Editor", () => DrawEditorGUI(shared, groups));
+
+            EditorGUILayout.Space(8);
+            if (GUILayout.Button("Reset All To Default", GUILayout.Width(160))) {
                 ResetPrefs();
             }
         }
 
-        private static void GridSettingsGUI(string key, Settings settings) {
-            //Label
-            EditorGUILayout.LabelField("Grid", EditorStyles.boldLabel);
-            settings.gridSnap = EditorGUILayout.Toggle(new GUIContent("Snap", "Hold CTRL in editor to invert"), settings.gridSnap);
-            settings.zoomToMouse = EditorGUILayout.Toggle(new GUIContent("Zoom to Mouse", "Zooms towards mouse position"), settings.zoomToMouse);
-            EditorGUILayout.LabelField("Zoom");
-            EditorGUI.indentLevel++;
-            settings.maxZoom = EditorGUILayout.FloatField(new GUIContent("Max", "Upper limit to zoom"), settings.maxZoom);
-            settings.minZoom = EditorGUILayout.FloatField(new GUIContent("Min", "Lower limit to zoom"), settings.minZoom);
-            settings.compactNodeZoom = EditorGUILayout.FloatField(
-                new GUIContent(
-                    "Hide Fields At",
-                    "When Scale is at least this value, node fields are not drawn. Size is kept. 0 disables."),
-                settings.compactNodeZoom);
-            EditorGUI.indentLevel--;
-            settings.gridLineColor = EditorGUILayout.ColorField("Color", settings.gridLineColor);
-            settings.gridBgColor = EditorGUILayout.ColorField(" ", settings.gridBgColor);
-            if (GUI.changed) {
-                SavePrefs(key, settings);
+        private static void DrawSection(string title, Action body) {
+            EditorGUILayout.Space(10);
+            EditorGUILayout.LabelField(title, EditorStyles.boldLabel);
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            body();
+            EditorGUILayout.EndVertical();
+        }
 
+        private static void DrawConnectionBlock(PreferenceGroup group, bool showLabel) {
+            VerifyLoaded(group);
+            Settings groupSettings = settings[group.key];
+
+            if (showLabel) {
+                EditorGUILayout.LabelField(group.label, EditorStyles.miniBoldLabel);
+            }
+
+            EditorGUI.BeginChangeCheck();
+            groupSettings.noodlePath = (NoodlePath) EditorGUILayout.EnumPopup("Path", groupSettings.noodlePath);
+            groupSettings.noodleThickness = EditorGUILayout.Slider("Thickness", groupSettings.noodleThickness, 1f, 8f);
+            groupSettings.noodleStroke = (NoodleStroke) EditorGUILayout.EnumPopup("Stroke", groupSettings.noodleStroke);
+            if (EditorGUI.EndChangeCheck()) {
+                SavePrefs(group.key, groupSettings);
                 NodeEditorWindow.RepaintAll();
             }
-            EditorGUILayout.Space();
+
+            if (showLabel) EditorGUILayout.Space(4);
         }
 
-        private static void SystemSettingsGUI(string key, Settings settings) {
-            //Label
-            EditorGUILayout.LabelField("System", EditorStyles.boldLabel);
-            settings.autoSave = EditorGUILayout.Toggle(new GUIContent("Autosave", "Disable for better editor performance"), settings.autoSave);
-            settings.openOnCreate = EditorGUILayout.Toggle(new GUIContent("Open Editor on Create", "Disable to prevent openening the editor when creating a new graph"), settings.openOnCreate);
-            if (GUI.changed) SavePrefs(key, settings);
-            EditorGUILayout.Space();
-        }
-
-        private static void NodeSettingsGUI(string key, Settings settings) {
-            //Label
-            EditorGUILayout.LabelField("Node", EditorStyles.boldLabel);
-            settings.tintColor = EditorGUILayout.ColorField("Tint", settings.tintColor);
-            settings.highlightColor = EditorGUILayout.ColorField("Selection", settings.highlightColor);
-            settings.noodlePath = (NoodlePath) EditorGUILayout.EnumPopup("Noodle path", (Enum) settings.noodlePath);
-            settings.noodleThickness = EditorGUILayout.FloatField(new GUIContent("Noodle thickness", "Noodle Thickness of the node connections"), settings.noodleThickness);
-            settings.noodleStroke = (NoodleStroke) EditorGUILayout.EnumPopup("Noodle stroke", (Enum) settings.noodleStroke);
-            settings.portTooltips = EditorGUILayout.Toggle("Port Tooltips", settings.portTooltips);
-            settings.dragToCreate = EditorGUILayout.Toggle(new GUIContent("Drag to Create", "Drag a port connection anywhere on the grid to create and connect a node"), settings.dragToCreate);
-            settings.createFilter = EditorGUILayout.Toggle(new GUIContent("Create Filter", "Only show nodes that are compatible with the selected port"), settings.createFilter);
-
-            //END
-            if (GUI.changed) {
-                SavePrefs(key, settings);
-                NodeEditorWindow.RepaintAll();
+        private static void DrawAppearanceGUI(Settings shared, PreferenceGroup[] groups) {
+            EditorGUI.BeginChangeCheck();
+            Color32 tint = EditorGUILayout.ColorField("Tint", shared.tintColor);
+            Color32 highlight = EditorGUILayout.ColorField("Selection", shared.highlightColor);
+            if (EditorGUI.EndChangeCheck()) {
+                ApplyShared(groups, s => {
+                    s.tintColor = tint;
+                    s.highlightColor = highlight;
+                });
             }
-            EditorGUILayout.Space();
-        }
 
-        private static void TypeColorsGUI(string key, Settings settings) {
-            //Label
-            EditorGUILayout.LabelField("Types", EditorStyles.boldLabel);
-
-            //Clone keys so we can enumerate the dictionary and make changes.
-            var typeColorKeys = new List<Type>(typeColors.Keys);
-
-            //Display type colors. Save them if they are edited by the user
-            foreach (var type in typeColorKeys) {
+            if (typeColors.Count == 0) return;
+            EditorGUILayout.Space(4);
+            EditorGUILayout.LabelField("Port Types", EditorStyles.miniBoldLabel);
+            List<Type> typeColorKeys = new List<Type>(typeColors.Keys);
+            for (int i = 0; i < typeColorKeys.Count; i++) {
+                Type type = typeColorKeys[i];
                 string typeColorKey = NodeEditorUtilities.PrettyName(type);
                 Color col = typeColors[type];
                 EditorGUI.BeginChangeCheck();
-                EditorGUILayout.BeginHorizontal();
                 col = EditorGUILayout.ColorField(typeColorKey, col);
-                EditorGUILayout.EndHorizontal();
                 if (EditorGUI.EndChangeCheck()) {
                     typeColors[type] = col;
-                    if (settings.typeColors.ContainsKey(typeColorKey)) settings.typeColors[typeColorKey] = col;
-                    else settings.typeColors.Add(typeColorKey, col);
-                    SavePrefs(key, settings);
-                    NodeEditorWindow.RepaintAll();
+                    ApplyShared(groups, s => {
+                        if (s.typeColors.ContainsKey(typeColorKey)) s.typeColors[typeColorKey] = col;
+                        else s.typeColors.Add(typeColorKey, col);
+                    });
                 }
             }
         }
 
-        /// <summary> Load prefs if they exist. Create if they don't </summary>
-        private static Settings LoadPrefs() {
-            // Create settings if it doesn't exist
-            if (!EditorPrefs.HasKey(lastKey)) {
-                if (lastEditor != null) EditorPrefs.SetString(lastKey, JsonUtility.ToJson(lastEditor.GetDefaultPreferences()));
-                else EditorPrefs.SetString(lastKey, JsonUtility.ToJson(new Settings()));
+        private static void DrawGridGUI(Settings shared, PreferenceGroup[] groups) {
+            EditorGUI.BeginChangeCheck();
+            bool gridSnap = EditorGUILayout.Toggle(new GUIContent("Snap", "Hold CTRL in editor to invert"), shared.gridSnap);
+            bool zoomToMouse = EditorGUILayout.Toggle(new GUIContent("Zoom to Mouse"), shared.zoomToMouse);
+            EditorGUILayout.LabelField("Zoom", EditorStyles.miniBoldLabel);
+            EditorGUI.indentLevel++;
+            float maxZoom = EditorGUILayout.FloatField("Max", shared.maxZoom);
+            float minZoom = EditorGUILayout.FloatField("Min", shared.minZoom);
+            float compactNodeZoom = EditorGUILayout.FloatField(
+                new GUIContent("Hide Fields At", "When Scale is at least this value, node fields are not drawn. 0 disables."),
+                shared.compactNodeZoom);
+            EditorGUI.indentLevel--;
+            Color32 gridLineColor = EditorGUILayout.ColorField("Line", shared.gridLineColor);
+            Color32 gridBgColor = EditorGUILayout.ColorField("Background", shared.gridBgColor);
+            if (EditorGUI.EndChangeCheck()) {
+                ApplyShared(groups, s => {
+                    s.gridSnap = gridSnap;
+                    s.zoomToMouse = zoomToMouse;
+                    s.maxZoom = maxZoom;
+                    s.minZoom = minZoom;
+                    s.compactNodeZoom = compactNodeZoom;
+                    s.gridLineColor = gridLineColor;
+                    s.gridBgColor = gridBgColor;
+                });
             }
-            return JsonUtility.FromJson<Settings>(EditorPrefs.GetString(lastKey));
         }
 
-        /// <summary> Delete all prefs </summary>
-        public static void ResetPrefs() {
-            if (EditorPrefs.HasKey(lastKey)) EditorPrefs.DeleteKey(lastKey);
-            if (settings.ContainsKey(lastKey)) settings.Remove(lastKey);
-            typeColors = new Dictionary<Type, Color>();
-            VerifyLoaded();
+        private static void DrawEditorGUI(Settings shared, PreferenceGroup[] groups) {
+            EditorGUI.BeginChangeCheck();
+            bool autoSave = EditorGUILayout.Toggle(new GUIContent("Autosave"), shared.autoSave);
+            bool openOnCreate = EditorGUILayout.Toggle(new GUIContent("Open Editor on Create"), shared.openOnCreate);
+            bool portTooltips = EditorGUILayout.Toggle("Port Tooltips", shared.portTooltips);
+            bool dragToCreate = EditorGUILayout.Toggle(new GUIContent("Drag to Create", "Drag a port onto empty grid to create a node"), shared.dragToCreate);
+            bool createFilter = EditorGUILayout.Toggle(new GUIContent("Create Filter", "Only show nodes compatible with the dragged port"), shared.createFilter);
+            if (EditorGUI.EndChangeCheck()) {
+                ApplyShared(groups, s => {
+                    s.autoSave = autoSave;
+                    s.openOnCreate = openOnCreate;
+                    s.portTooltips = portTooltips;
+                    s.dragToCreate = dragToCreate;
+                    s.createFilter = createFilter;
+                });
+            }
+        }
+
+        private static Settings GetSharedSettings() {
+            PreferenceGroup[] groups = GetPreferenceGroups();
+            VerifyLoaded(groups[0]);
+            return settings[groups[0].key];
+        }
+
+        private static void ApplyShared(PreferenceGroup[] groups, Action<Settings> mutate) {
+            for (int i = 0; i < groups.Length; i++) {
+                VerifyLoaded(groups[i]);
+                Settings groupSettings = settings[groups[i].key];
+                mutate(groupSettings);
+                SavePrefs(groups[i].key, groupSettings);
+            }
             NodeEditorWindow.RepaintAll();
         }
 
-        /// <summary> Save preferences in EditorPrefs </summary>
+        private static Settings LoadPrefs(PreferenceGroup group) {
+            if (!EditorPrefs.HasKey(group.key)) {
+                if (group.key != "xNode.Settings" && EditorPrefs.HasKey("xNode.Settings")) {
+                    EditorPrefs.SetString(group.key, EditorPrefs.GetString("xNode.Settings"));
+                } else {
+                    EditorPrefs.SetString(group.key, JsonUtility.ToJson(group.CreateDefaults()));
+                }
+            }
+            return JsonUtility.FromJson<Settings>(EditorPrefs.GetString(group.key));
+        }
+
+        public static void ResetPrefs() {
+            PreferenceGroup[] groups = GetPreferenceGroups();
+            for (int i = 0; i < groups.Length; i++) ResetPrefs(groups[i]);
+            typeColors = new Dictionary<Type, Color>();
+            NodeEditorWindow.RepaintAll();
+        }
+
+        private static void ResetPrefs(PreferenceGroup group) {
+            if (EditorPrefs.HasKey(group.key)) EditorPrefs.DeleteKey(group.key);
+            if (settings.ContainsKey(group.key)) settings.Remove(group.key);
+            VerifyLoaded(group);
+            NodeEditorWindow.RepaintAll();
+        }
+
         private static void SavePrefs(string key, Settings settings) {
             EditorPrefs.SetString(key, JsonUtility.ToJson(settings));
         }
 
-        /// <summary> Check if we have loaded settings for given key. If not, load them </summary>
         private static void VerifyLoaded() {
-            if (!settings.ContainsKey(lastKey)) settings.Add(lastKey, LoadPrefs());
+            VerifyLoaded(GetActivePreferenceGroup());
         }
 
-        /// <summary> Return color based on type </summary>
+        private static void VerifyLoaded(PreferenceGroup group) {
+            lastKey = group.key;
+            if (!settings.ContainsKey(group.key)) settings.Add(group.key, LoadPrefs(group));
+        }
+
+        private static string PrefsLabel(NodeGraphEditor.CustomNodeGraphEditorAttribute attrib) {
+            string typeName = attrib.GetInspectedType().Name;
+            if (typeName.EndsWith("Graph", StringComparison.Ordinal)) {
+                typeName = typeName.Substring(0, typeName.Length - 5);
+            }
+            return ObjectNames.NicifyVariableName(typeName);
+        }
+
+        private static PreferenceGroup[] GetPreferenceGroups() {
+            List<PreferenceGroup> groups = new List<PreferenceGroup>();
+            HashSet<string> seen = new HashSet<string>();
+            CollectGroups(TypeCache.GetTypesWithAttribute<NodeGraphEditor.CustomNodeGraphEditorAttribute>(), groups, seen);
+            if (groups.Count < 2) {
+                CollectGroups(TypeCache.GetTypesDerivedFrom<NodeGraphEditor>(), groups, seen);
+            }
+
+            if (groups.Count == 0) return new[] { PreferenceGroup.Default };
+            groups.Sort((a, b) => string.CompareOrdinal(a.label, b.label));
+            return groups.ToArray();
+        }
+
+        private static void CollectGroups(
+            TypeCache.TypeCollection types,
+            List<PreferenceGroup> groups,
+            HashSet<string> seen)
+        {
+            foreach (Type editorType in types) {
+                if (editorType.IsAbstract) continue;
+                if (!typeof(NodeGraphEditor).IsAssignableFrom(editorType)) continue;
+                NodeGraphEditor.CustomNodeGraphEditorAttribute attrib =
+                    editorType.GetCustomAttribute<NodeGraphEditor.CustomNodeGraphEditorAttribute>(false) ??
+                    editorType.GetCustomAttribute<NodeGraphEditor.CustomNodeGraphEditorAttribute>(true);
+                if (attrib == null) continue;
+                if (attrib.GetInspectedType() == typeof(XNode.NodeGraph)) continue;
+                if (!seen.Add(attrib.editorPrefsKey)) continue;
+                groups.Add(new PreferenceGroup(attrib.editorPrefsKey, PrefsLabel(attrib), editorType));
+            }
+        }
+
+        private readonly struct PreferenceGroup {
+            public readonly string key;
+            public readonly string label;
+            public readonly Type editorType;
+
+            public static PreferenceGroup Default =>
+                new PreferenceGroup("xNode.Settings", "Node Editor", null);
+
+            public PreferenceGroup(string key, string label, Type editorType) {
+                this.key = key;
+                this.label = label;
+                this.editorType = editorType;
+            }
+
+            public Settings CreateDefaults() {
+                if (editorType == null) return new Settings();
+                try {
+                    NodeGraphEditor editor = Activator.CreateInstance(editorType) as NodeGraphEditor;
+                    if (editor != null) return editor.GetDefaultPreferences() ?? new Settings();
+                } catch {
+                    // ignored
+                }
+                return new Settings();
+            }
+        }
+
         public static Color GetTypeColor(System.Type type) {
             VerifyLoaded();
             if (type == null) return Color.gray;
