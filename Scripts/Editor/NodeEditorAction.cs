@@ -95,32 +95,12 @@ namespace XNodeEditor {
                                 if (Selection.objects[i] is XNode.Node) {
                                     XNode.Node node = Selection.objects[i] as XNode.Node;
                                     Undo.RecordObject(node, "Moved Node");
-                                    Vector2 initial = node.position;
-                                    node.position = mousePos + dragOffset[i];
+                                    Vector2 next = mousePos + dragOffset[i];
                                     if (gridSnap) {
-                                        node.position.x = (Mathf.Round((node.position.x + 8) / 16) * 16) - 8;
-                                        node.position.y = (Mathf.Round((node.position.y + 8) / 16) * 16) - 8;
+                                        next.x = (Mathf.Round((next.x + 8) / 16) * 16) - 8;
+                                        next.y = (Mathf.Round((next.y + 8) / 16) * 16) - 8;
                                     }
-
-                                    // Offset portConnectionPoints instantly if a node is dragged so they aren't delayed by a frame.
-                                    Vector2 offset = node.position - initial;
-                                    if (offset.sqrMagnitude > 0) {
-                                        foreach (XNode.NodePort output in node.Outputs) {
-                                            Rect rect;
-                                            if (portConnectionPoints.TryGetValue(output, out rect)) {
-                                                rect.position += offset;
-                                                portConnectionPoints[output] = rect;
-                                            }
-                                        }
-
-                                        foreach (XNode.NodePort input in node.Inputs) {
-                                            Rect rect;
-                                            if (portConnectionPoints.TryGetValue(input, out rect)) {
-                                                rect.position += offset;
-                                                portConnectionPoints[input] = rect;
-                                            }
-                                        }
-                                    }
+                                    SetNodePosition(node, next);
                                 }
                             }
                             // Move selected reroutes with offset
@@ -588,14 +568,14 @@ namespace XNodeEditor {
             NoodleStroke stroke = graphEditor.GetNoodleStroke(fromPort, null);
 
             Rect fromRect;
-            if (!_portConnectionPoints.TryGetValue(fromPort, out fromRect)) return;
+            if (!TryGetPortGridRect(fromPort, out fromRect)) return;
             List<Vector2> gridPoints = new List<Vector2>();
             gridPoints.Add(fromRect.center);
             for (int i = 0; i < draggedOutputReroutes.Count; i++) {
                 gridPoints.Add(draggedOutputReroutes[i]);
             }
             Rect toRect;
-            if (toPort != null && portConnectionPoints.TryGetValue(toPort, out toRect)) {
+            if (toPort != null && TryGetPortGridRect(toPort, out toRect)) {
                 gridPoints.Add(toRect.center);
             } else {
                 gridPoints.Add(WindowToGridPosition(Event.current.mousePosition));

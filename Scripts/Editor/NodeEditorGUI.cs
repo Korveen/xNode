@@ -509,7 +509,7 @@ namespace XNodeEditor {
                 foreach (XNode.NodePort output in node.Outputs) {
                     //Needs cleanup. Null checks are ugly
                     Rect fromRect;
-                    if (!_portConnectionPoints.TryGetValue(output, out fromRect)) continue;
+                    if (!TryGetPortGridRect(output, out fromRect)) continue;
 
                     Color portColor = graphEditor.GetPortColor(output);
                     GUIStyle portStyle = graphEditor.GetPortStyle(output);
@@ -531,7 +531,7 @@ namespace XNodeEditor {
                         NoodleStroke noodleStroke = graphEditor.GetNoodleStroke(output, input);
                         if (!input.IsConnectedTo(output)) input.Connect(output);
                         Rect toRect;
-                        if (!_portConnectionPoints.TryGetValue(input, out toRect)) continue;
+                        if (!TryGetPortGridRect(input, out toRect)) continue;
 
                         List<Vector2> reroutePoints = output.GetReroutePoints(k);
 
@@ -706,8 +706,7 @@ namespace XNodeEditor {
                     else nodeSizes.Add(node, size);
 
                     foreach (var kvp in NodeEditor.portPositions) {
-                        Vector2 portHandlePos = kvp.Value + node.position;
-                        portConnectionPoints[kvp.Key] = new Rect(portHandlePos.x - 8, portHandlePos.y - 8, 16, 16);
+                        portConnectionPoints[kvp.Key] = new Rect(kvp.Value.x - 8, kvp.Value.y - 8, 16, 16);
                     }
                 }
 
@@ -751,7 +750,7 @@ namespace XNodeEditor {
             if (NodeEditor.portHitRects.TryGetValue(port, out Rect customHitRect)) {
                 customHitRect.position += node.position;
                 gridRect = customHitRect;
-            } else if (!portConnectionPoints.TryGetValue(port, out gridRect)) {
+            } else if (!TryGetPortGridRect(port, out gridRect)) {
                 return false;
             }
 

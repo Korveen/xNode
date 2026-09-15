@@ -11,9 +11,22 @@ namespace XNodeEditor {
     public partial class NodeEditorWindow : EditorWindow {
         public static NodeEditorWindow current;
 
-        /// <summary> Stores node positions for all nodePorts. </summary>
+        /// <summary> Stores port handle rects in node-local space. Add node.position when drawing. </summary>
         public Dictionary<XNode.NodePort, Rect> portConnectionPoints { get { return _portConnectionPoints; } }
         private Dictionary<XNode.NodePort, Rect> _portConnectionPoints = new Dictionary<XNode.NodePort, Rect>();
+        [SerializeField] private bool _portRectsLocal;
+
+        public void SetNodePosition(XNode.Node node, Vector2 position) {
+            if (node == null) return;
+            node.position = position;
+        }
+
+        public bool TryGetPortGridRect(XNode.NodePort port, out Rect gridRect) {
+            gridRect = default;
+            if (port == null || !_portConnectionPoints.TryGetValue(port, out gridRect)) return false;
+            if (port.node != null) gridRect.position += port.node.position;
+            return true;
+        }
         [SerializeField] private NodePortReference[] _references = new NodePortReference[0];
         [SerializeField] private Rect[] _rects = new Rect[0];
 
@@ -43,6 +56,8 @@ namespace XNodeEditor {
         }
 
         private void OnDisable() {
+            Undo.undoRedoPerformed -= OnUndoRedo;
+            _portRectsLocal = true;
             // Cache portConnectionPoints before serialization starts
             int count = portConnectionPoints.Count;
             _references = new NodePortReference[count];
@@ -56,6 +71,8 @@ namespace XNodeEditor {
         }
 
         private void OnEnable() {
+            Undo.undoRedoPerformed -= OnUndoRedo;
+            Undo.undoRedoPerformed += OnUndoRedo;
             // Reload portConnectionPoints if there are any
             int length = _references.Length;
             if (length == _rects.Length) {
@@ -64,6 +81,25 @@ namespace XNodeEditor {
                     if (nodePort != null)
                         _portConnectionPoints.Add(nodePort, _rects[i]);
                 }
+            }
+            if (!_portRectsLocal) {
+                ConvertPortRectsToLocal();
+                _portRectsLocal = true;
+            }
+        }
+
+        private void OnUndoRedo() {
+            Repaint();
+        }
+
+        private void ConvertPortRectsToLocal() {
+            List<XNode.NodePort> ports = new List<XNode.NodePort>(_portConnectionPoints.Keys);
+            for (int i = 0; i < ports.Count; i++) {
+                XNode.NodePort port = ports[i];
+                if (port == null || port.node == null) continue;
+                Rect rect = _portConnectionPoints[port];
+                rect.position -= port.node.position;
+                _portConnectionPoints[port] = rect;
             }
         }
 
