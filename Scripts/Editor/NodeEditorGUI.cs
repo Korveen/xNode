@@ -18,7 +18,6 @@ namespace XNodeEditor {
         private int topPadding { get { return isDocked() ? 19 : 22; } }
         /// <summary> Executed after all other window GUI. Useful if Zoom is ruining your day. Automatically resets after being run.</summary>
         public event Action onLateGUI;
-        private static readonly Vector3[] polyLineTempArray = new Vector3[2];
 
         protected virtual void OnGUI() {
             Event e = Event.current;
@@ -33,6 +32,8 @@ namespace XNodeEditor {
             Controls();
 
             DrawGrid(position, zoom, panOffset);
+
+            BeginZoomed(position, zoom, topPadding);
             DrawConnections();
             DrawDraggedConnection();
 
@@ -41,6 +42,7 @@ namespace XNodeEditor {
             if (blockGraphPointer) e.type = EventType.Used;
             DrawNodes();
             if (blockGraphPointer) e.type = graphEventType;
+            EndZoomed(position, zoom, topPadding);
 
             DrawSelectionBox();
             DrawTooltip();
@@ -285,13 +287,40 @@ namespace XNodeEditor {
             );
         }
 
-        /// <summary> Draws a line segment without allocating temporary arrays </summary>
+        /// <summary>
+        /// Segment in BeginZoomed GUI space. Do not touch GUI.matrix: IMGUI zoom
+        /// already owns it, and any extra rotate/TRS throws the polyline around the window.
+        /// Same primitive as port punches: GUI.DrawTexture.
+        /// </summary>
         static void DrawAAPolyLineNonAlloc(float thickness, Vector2 p0, Vector2 p1) {
-            polyLineTempArray[0].x = p0.x;
-            polyLineTempArray[0].y = p0.y;
-            polyLineTempArray[1].x = p1.x;
-            polyLineTempArray[1].y = p1.y;
-            Handles.DrawAAPolyLine(thickness, polyLineTempArray);
+            if (Event.current.type != EventType.Repaint) return;
+
+            Vector2 delta = p1 - p0;
+            float length = delta.magnitude;
+            if (length < 0.01f) return;
+
+            Color prev = GUI.color;
+            GUI.color = Handles.color;
+            float w = Mathf.Max(1f, thickness);
+            float half = w * 0.5f;
+            Texture2D tex = Texture2D.whiteTexture;
+
+            float absX = Mathf.Abs(delta.x);
+            float absY = Mathf.Abs(delta.y);
+            if (absY <= 0.51f) {
+                GUI.DrawTexture(new Rect(Mathf.Min(p0.x, p1.x), p0.y - half, length, w), tex);
+            } else if (absX <= 0.51f) {
+                GUI.DrawTexture(new Rect(p0.x - half, Mathf.Min(p0.y, p1.y), w, length), tex);
+            } else {
+                int steps = Mathf.Max(1, Mathf.CeilToInt(length / Mathf.Max(0.75f, half)));
+                float inv = 1f / steps;
+                for (int i = 0; i <= steps; i++) {
+                    Vector2 p = p0 + delta * (i * inv);
+                    GUI.DrawTexture(new Rect(p.x - half, p.y - half, w, w), tex);
+                }
+            }
+
+            GUI.color = prev;
         }
 
         /// <summary> Draw a bezier from output to input in grid coordinates </summary>
@@ -306,9 +335,10 @@ namespace XNodeEditor {
             startDir.Normalize();
             endDir.Normalize();
 
-            // convert grid points to window points
+            // Same space as node punches: BeginZoomed + GridToWindowPositionNoClipped.
+            thickness *= zoom;
             for (int i = 0; i < gridPoints.Count; ++i)
-                gridPoints[i] = GridToWindowPosition(gridPoints[i]);
+                gridPoints[i] = GridToWindowPositionNoClipped(gridPoints[i]);
 
             Color originalHandlesColor = Handles.color;
             Handles.color = gradient.Evaluate(0f);
@@ -396,7 +426,12 @@ namespace XNodeEditor {
                         float stub = 25 / zoom;
                         bool last = i == length - 2;
                         if (!verticalFlow) {
-                            if (pointA.x <= pointB.x - gap) {
+                            float startX = Mathf.Sign(startDir.x == 0f ? 1f : startDir.x);
+                            float endX = Mathf.Sign(endDir.x == 0f ? -1f : endDir.x);
+                            bool forward = startX > 0f
+                                ? pointA.x <= pointB.x - gap
+                                : pointA.x >= pointB.x + gap;
+                            if (forward) {
                                 float midpoint = (pointA.x + pointB.x) * 0.5f;
                                 Vector2 start_1 = new Vector2(midpoint, pointA.y);
                                 Vector2 end_1 = new Vector2(midpoint, pointB.y);
@@ -406,8 +441,8 @@ namespace XNodeEditor {
                                 if (last) Handles.color = gradient.Evaluate(1f);
                                 DrawAAPolyLineNonAlloc(thickness, end_1, pointB);
                             } else {
-                                Vector2 start_1 = new Vector2(pointA.x + stub, pointA.y);
-                                Vector2 end_1 = new Vector2(pointB.x - stub, pointB.y);
+                                Vector2 start_1 = new Vector2(pointA.x + stub * startX, pointA.y);
+                                Vector2 end_1 = new Vector2(pointB.x + stub * endX, pointB.y);
                                 float midpoint = (pointA.y + pointB.y) * 0.5f;
                                 Vector2 start_2 = new Vector2(start_1.x, midpoint);
                                 Vector2 end_2 = new Vector2(end_1.x, midpoint);
@@ -547,9 +582,9 @@ namespace XNodeEditor {
                         for (int i = 0; i < reroutePoints.Count; i++) {
                             RerouteReference rerouteRef = new RerouteReference(output, k, i);
                             // Draw reroute point at position
-                            Rect rect = new Rect(reroutePoints[i], new Vector2(12, 12));
-                            rect.position = new Vector2(rect.position.x - 6, rect.position.y - 6);
-                            rect = GridToWindowRect(rect);
+                            Rect rect = GridToWindowRectNoClipped(new Rect(
+                                reroutePoints[i] - new Vector2(6f, 6f),
+                                new Vector2(12f, 12f)));
 
                             // Draw selected reroute points with an outline
                             if (selectedReroutes.Contains(rerouteRef)) {
@@ -587,8 +622,6 @@ namespace XNodeEditor {
                 if (onValidate != null) EditorGUI.BeginChangeCheck();
             }
 
-            BeginZoomed(position, zoom, topPadding);
-
             Vector2 mousePos = Event.current.mousePosition;
 
             if (e.type != EventType.Layout) {
@@ -616,7 +649,6 @@ namespace XNodeEditor {
                 if (graph.nodes[n] == null) continue;
                 if (n >= graph.nodes.Count) {
                     GUI.color = guiColor;
-                    EndZoomed(position, zoom, topPadding);
                     return;
                 }
                 XNode.Node node = graph.nodes[n];
@@ -706,7 +738,12 @@ namespace XNodeEditor {
                     else nodeSizes.Add(node, size);
 
                     foreach (var kvp in NodeEditor.portPositions) {
-                        portConnectionPoints[kvp.Key] = new Rect(kvp.Value.x - 8, kvp.Value.y - 8, 16, 16);
+                        float half = NodeEditorGUILayout.PortHandleSize * 0.5f;
+                        portConnectionPoints[kvp.Key] = new Rect(
+                            kvp.Value.x - half,
+                            kvp.Value.y - half,
+                            NodeEditorGUILayout.PortHandleSize,
+                            NodeEditorGUILayout.PortHandleSize);
                     }
                 }
 
@@ -737,7 +774,6 @@ namespace XNodeEditor {
 
             if (e.type != EventType.Layout && currentActivity == NodeActivity.DragGrid) Selection.objects = preSelection.ToArray();
             GUI.color = guiColor;
-            EndZoomed(position, zoom, topPadding);
 
             //If a change in is detected in the selected node, call OnValidate method.
             //This is done through reflection because OnValidate is only relevant in editor,

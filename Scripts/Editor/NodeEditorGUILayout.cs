@@ -13,6 +13,16 @@ namespace XNodeEditor {
 
         private static readonly Dictionary<UnityEngine.Object, Dictionary<string, ReorderableList>> reorderableListCache = new Dictionary<UnityEngine.Object, Dictionary<string, ReorderableList>>();
         private static int reorderableListIndex = -1;
+        public const float PortHandleSize = 16f;
+
+        static Rect GetPortHandleRect(Rect controlRect, XNode.NodePort.IO direction, float padding, float extraYOffset = 0f) {
+            float rowHeight = Mathf.Min(controlRect.height, EditorGUIUtility.singleLineHeight);
+            float y = controlRect.y + extraYOffset + (rowHeight - PortHandleSize) * 0.5f;
+            float x = direction == XNode.NodePort.IO.Input
+                ? controlRect.x - PortHandleSize - padding
+                : controlRect.xMax + padding;
+            return new Rect(x, y, PortHandleSize, PortHandleSize);
+        }
 
         /// <summary> Make a field for a serialized property. Automatically displays relevant node port. </summary>
         public static void PropertyField(SerializedProperty property, bool includeChildren = true, params GUILayoutOption[] options) {
@@ -100,9 +110,11 @@ namespace XNodeEditor {
                             break;
                     }
 
-                    rect = GUILayoutUtility.GetLastRect();
-                    float paddingLeft = NodeEditorWindow.current.graphEditor.GetPortStyle(port).padding.left;
-                    rect.position = rect.position - new Vector2(16 + paddingLeft, -spacePadding);
+                    rect = GetPortHandleRect(
+                        GUILayoutUtility.GetLastRect(),
+                        port.direction,
+                        NodeEditorWindow.current.graphEditor.GetPortStyle(port).padding.left,
+                        spacePadding);
                     // If property is an output, display a text label and put a port handle on the right side
                 } else if (port.direction == XNode.NodePort.IO.Output) {
                     // Get data from [Output] attribute
@@ -160,12 +172,12 @@ namespace XNodeEditor {
                             break;
                     }
 
-                    rect = GUILayoutUtility.GetLastRect();
-                    rect.width += NodeEditorWindow.current.graphEditor.GetPortStyle(port).padding.right;
-                    rect.position = rect.position + new Vector2(rect.width, spacePadding);
+                    rect = GetPortHandleRect(
+                        GUILayoutUtility.GetLastRect(),
+                        port.direction,
+                        NodeEditorWindow.current.graphEditor.GetPortStyle(port).padding.right,
+                        spacePadding);
                 }
-
-                rect.size = new Vector2(16, 16);
 
                 Color backgroundColor = NodeEditorWindow.current.graphEditor.GetPortBackgroundColor(port);
                 Color col = NodeEditorWindow.current.graphEditor.GetPortColor(port);
@@ -201,18 +213,22 @@ namespace XNodeEditor {
                 // Display a label
                 EditorGUILayout.LabelField(content, options);
 
-                Rect rect = GUILayoutUtility.GetLastRect();
-                float paddingLeft = NodeEditorWindow.current.graphEditor.GetPortStyle(port).padding.left;
-                position = rect.position - new Vector2(16 + paddingLeft, 0);
+                Rect handle = GetPortHandleRect(
+                    GUILayoutUtility.GetLastRect(),
+                    port.direction,
+                    NodeEditorWindow.current.graphEditor.GetPortStyle(port).padding.left);
+                position = handle.position;
             }
             // If property is an output, display a text label and put a port handle on the right side
             else if (port.direction == XNode.NodePort.IO.Output) {
                 // Display a label
                 EditorGUILayout.LabelField(content, NodeEditorResources.OutputPort, options);
 
-                Rect rect = GUILayoutUtility.GetLastRect();
-                rect.width += NodeEditorWindow.current.graphEditor.GetPortStyle(port).padding.right;
-                position = rect.position + new Vector2(rect.width, 0);
+                Rect handle = GetPortHandleRect(
+                    GUILayoutUtility.GetLastRect(),
+                    port.direction,
+                    NodeEditorWindow.current.graphEditor.GetPortStyle(port).padding.right);
+                position = handle.position;
             }
             PortField(position, port);
         }
@@ -221,7 +237,7 @@ namespace XNodeEditor {
         public static void PortField(Vector2 position, XNode.NodePort port) {
             if (port == null) return;
 
-            Rect rect = new Rect(position, new Vector2(16, 16));
+            Rect rect = new Rect(position, new Vector2(PortHandleSize, PortHandleSize));
 
             Color backgroundColor = NodeEditorWindow.current.graphEditor.GetPortBackgroundColor(port);
             Color col = NodeEditorWindow.current.graphEditor.GetPortColor(port);
@@ -239,19 +255,17 @@ namespace XNodeEditor {
             if (port == null) return;
             Rect rect = new Rect();
 
-            // If property is an input, display a regular property field and put a port handle on the left side
             if (port.direction == XNode.NodePort.IO.Input) {
-                rect = GUILayoutUtility.GetLastRect();
-                float paddingLeft = NodeEditorWindow.current.graphEditor.GetPortStyle(port).padding.left;
-                rect.position = rect.position - new Vector2(16 + paddingLeft, 0);
-                // If property is an output, display a text label and put a port handle on the right side
+                rect = GetPortHandleRect(
+                    GUILayoutUtility.GetLastRect(),
+                    port.direction,
+                    NodeEditorWindow.current.graphEditor.GetPortStyle(port).padding.left);
             } else if (port.direction == XNode.NodePort.IO.Output) {
-                rect = GUILayoutUtility.GetLastRect();
-                rect.width += NodeEditorWindow.current.graphEditor.GetPortStyle(port).padding.right;
-                rect.position = rect.position + new Vector2(rect.width, 0);
+                rect = GetPortHandleRect(
+                    GUILayoutUtility.GetLastRect(),
+                    port.direction,
+                    NodeEditorWindow.current.graphEditor.GetPortStyle(port).padding.right);
             }
-
-            rect.size = new Vector2(16, 16);
 
             Color backgroundColor = NodeEditorWindow.current.graphEditor.GetPortBackgroundColor(port);
             Color col = NodeEditorWindow.current.graphEditor.GetPortColor(port);
@@ -372,7 +386,10 @@ namespace XNodeEditor {
                         EditorGUI.PropertyField(rect, itemData, true);
                     } else EditorGUI.LabelField(rect, port != null ? port.fieldName : "");
                     if (port != null) {
-                        Vector2 pos = rect.position + (port.IsOutput ? new Vector2(rect.width + 6, 0) : new Vector2(-36, 0));
+                        float y = rect.y + (Mathf.Min(rect.height, EditorGUIUtility.singleLineHeight) - PortHandleSize) * 0.5f;
+                        Vector2 pos = new Vector2(
+                            port.IsOutput ? rect.x + rect.width + 6 : rect.x - 36,
+                            y);
                         NodeEditorGUILayout.PortField(pos, port);
                     }
                 };

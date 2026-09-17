@@ -578,7 +578,7 @@ namespace XNodeEditor {
             if (toPort != null && TryGetPortGridRect(toPort, out toRect)) {
                 gridPoints.Add(toRect.center);
             } else {
-                gridPoints.Add(WindowToGridPosition(Event.current.mousePosition));
+                gridPoints.Add(WindowToGridPositionNoClipped(Event.current.mousePosition));
             }
 
             DrawNoodle(gradient, path, stroke, thickness, gridPoints, graphEditor.GetNoodlePortDirection(fromPort), toPort != null ? graphEditor.GetNoodlePortDirection(toPort) : -graphEditor.GetNoodlePortDirection(fromPort));
@@ -592,9 +592,9 @@ namespace XNodeEditor {
             // Loop through reroute points again and draw the points
             for (int i = 0; i < draggedOutputReroutes.Count; i++) {
                 // Draw reroute point at position
-                Rect rect = new Rect(draggedOutputReroutes[i], new Vector2(16, 16));
-                rect.position = new Vector2(rect.position.x - 8, rect.position.y - 8);
-                rect = GridToWindowRect(rect);
+                Rect rect = GridToWindowRectNoClipped(new Rect(
+                    draggedOutputReroutes[i] - new Vector2(8f, 8f),
+                    new Vector2(16f, 16f)));
 
                 NodeEditorGUILayout.DrawPortHandle(rect, bgcol, frcol, portStyle.normal.background, portStyle.active.background);
             }

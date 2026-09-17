@@ -367,6 +367,11 @@ namespace XNodeEditor {
             return (windowPosition - (position.size * 0.5f) - (panOffset / zoom)) * zoom;
         }
 
+        public Vector2 WindowToGridPositionNoClipped(Vector2 zoomedPosition) {
+            Vector2 center = position.size * 0.5f;
+            return zoomedPosition - (center * zoom) - panOffset;
+        }
+
         public Vector2 GridToWindowPosition(Vector2 gridPosition) {
             return (position.size * 0.5f) + (panOffset / zoom) + (gridPosition / zoom);
         }
