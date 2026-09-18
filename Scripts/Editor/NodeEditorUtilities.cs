@@ -218,8 +218,9 @@ namespace XNodeEditor {
         /// <summary> Returns the default name for the node type. </summary>
         public static string NodeDefaultName(Type type) {
             string typeName = type.Name;
-            // Automatically remove redundant 'Node' postfix
-            if (typeName.EndsWith("Node")) typeName = typeName.Substring(0, typeName.LastIndexOf("Node"));
+            if (typeName.EndsWith("QueryNode")) typeName = typeName.Substring(0, typeName.Length - 9);
+            else if (typeName.EndsWith("FlowNode")) typeName = typeName.Substring(0, typeName.Length - 8);
+            else if (typeName.EndsWith("Node")) typeName = typeName.Substring(0, typeName.Length - 4);
             typeName = UnityEditor.ObjectNames.NicifyVariableName(typeName);
             return typeName;
         }

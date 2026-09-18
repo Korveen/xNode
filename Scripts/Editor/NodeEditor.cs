@@ -20,6 +20,11 @@ namespace XNodeEditor {
         /// <summary> Fires every whenever a node was modified through the editor </summary>
         public static Action<XNode.Node> onUpdateNode;
         public readonly static Dictionary<XNode.NodePort, Vector2> portPositions = new Dictionary<XNode.NodePort, Vector2>();
+        /// <summary>
+        /// Optional hover rect in node-local GUI space. Does not move the noodle origin;
+        /// <see cref="portPositions"/> still defines where the connection is drawn.
+        /// </summary>
+        public readonly static Dictionary<XNode.NodePort, Rect> portHitRects = new Dictionary<XNode.NodePort, Rect>();
 
 #if ODIN_INSPECTOR
         protected internal static bool inNodeEditor = false;
@@ -125,6 +130,11 @@ namespace XNodeEditor {
 
         public virtual GUIStyle GetBodyHighlightStyle() {
             return NodeEditorResources.styles.nodeHighlight;
+        }
+
+        /// <summary> Height of the header used for node dragging. </summary>
+        public virtual float GetHeaderHeight() {
+            return 30;
         }
 
         /// <summary> Override to display custom node header tooltips </summary>

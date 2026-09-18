@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
@@ -16,6 +16,9 @@ namespace XNodeEditor {
         protected bool isRenaming;
 
         public virtual void OnGUI() { }
+
+        /// <summary> Extra toolbar controls for a specific graph type. Drawn inside the window toolbar. </summary>
+        public virtual void OnToolbarGUI() { }
 
         /// <summary> Called when opened by NodeEditorWindow </summary>
         public virtual void OnOpen() { }
@@ -64,6 +67,28 @@ namespace XNodeEditor {
         /// </summary>
         public virtual bool CanConnect(XNode.NodePort output, XNode.NodePort input) {
             return output.CanConnectTo(input);
+        }
+
+        /// <summary>
+        /// Prefer this input when a connection is dropped on the node body instead of a specific port.
+        /// </summary>
+        public virtual XNode.NodePort GetCompatibleInput(XNode.NodePort output, XNode.Node node) {
+            if (output == null || node == null || output.node == node) return null;
+            foreach (XNode.NodePort input in node.Inputs) {
+                if (CanConnect(output, input) && !output.IsConnectedTo(input)) return input;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Prefer this output when a reverse-dragged input is dropped on the node body instead of a specific port.
+        /// </summary>
+        public virtual XNode.NodePort GetCompatibleOutput(XNode.NodePort input, XNode.Node node) {
+            if (input == null || node == null || input.node == node) return null;
+            foreach (XNode.NodePort output in node.Outputs) {
+                if (CanConnect(output, input) && !output.IsConnectedTo(input)) return output;
+            }
+            return null;
         }
 
         /// <summary>
@@ -149,6 +174,15 @@ namespace XNodeEditor {
         /// <param name="input"> The output this noodle comes from. Can be null if we are dragging the noodle. </param>
         public virtual float GetNoodleThickness(XNode.NodePort output, XNode.NodePort input) {
             return NodeEditorPreferences.GetSettings().noodleThickness;
+        }
+
+        /// <summary>
+        /// Direction the noodle leaves a port, in GUI space (y+ is down).
+        /// Default is left-to-right. Override for vertical graphs.
+        /// </summary>
+        public virtual Vector2 GetNoodlePortDirection(XNode.NodePort port) {
+            if (port == null || port.IsOutput) return Vector2.right;
+            return Vector2.left;
         }
 
         public virtual NoodlePath GetNoodlePath(XNode.NodePort output, XNode.NodePort input) {
@@ -263,9 +297,9 @@ namespace XNodeEditor {
             if (NodeEditorPreferences.GetSettings().autoSave) AssetDatabase.SaveAssets();
         }
 
-        [AttributeUsage(AttributeTargets.Class)]
+        [AttributeUsage(AttributeTargets.Class, Inherited = false)]
         public class CustomNodeGraphEditorAttribute : Attribute,
-        XNodeEditor.Internal.NodeEditorBase<NodeGraphEditor, NodeGraphEditor.CustomNodeGraphEditorAttribute, XNode.NodeGraph>.INodeEditorAttrib {
+        XNodeEditor.Internal.NodeEditorBase<NodeGraphEditor, CustomNodeGraphEditorAttribute, XNode.NodeGraph>.INodeEditorAttrib {
             private Type inspectedType;
             public string editorPrefsKey;
             /// <summary> Tells a NodeGraphEditor which Graph type it is an editor for </summary>

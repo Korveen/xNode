@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEngine;
@@ -126,12 +126,25 @@ namespace XNode {
             return node.GetValue(this);
         }
 
+        /// <summary> Return this output value for one graph execution context. </summary>
+        public object GetOutputValue(GraphExecutionContext context) {
+            if (direction == IO.Input) return null;
+            return node.GetValue(this, context);
+        }
+
         /// <summary> Return the output value of the first connected port. Returns null if none found or invalid.</summary>
         /// <returns> <see cref="NodePort.GetOutputValue"/> </returns>
         public object GetInputValue() {
             NodePort connectedPort = Connection;
             if (connectedPort == null) return null;
             return connectedPort.GetOutputValue();
+        }
+
+        /// <summary> Return the first connected value for one graph execution context. </summary>
+        public object GetInputValue(GraphExecutionContext context) {
+            NodePort connectedPort = Connection;
+            if (connectedPort == null) return null;
+            return connectedPort.GetOutputValue(context);
         }
 
         /// <summary> Return the output values of all connected ports. </summary>
@@ -154,6 +167,11 @@ namespace XNode {
         /// <returns> <see cref="NodePort.GetOutputValue"/> </returns>
         public T GetInputValue<T>() {
             object obj = GetInputValue();
+            return obj is T ? (T) obj : default(T);
+        }
+
+        public T GetInputValue<T>(GraphExecutionContext context) {
+            object obj = GetInputValue(context);
             return obj is T ? (T) obj : default(T);
         }
 

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -110,6 +110,8 @@ namespace XNode {
         public IEnumerable<NodePort> DynamicInputs { get { foreach (NodePort port in Ports) { if (port.IsDynamic && port.IsInput) yield return port; } } }
         /// <summary> Parent <see cref="NodeGraph"/> </summary>
         [SerializeField] public NodeGraph graph;
+        /// <summary> Stable identity used by compiled runtime contexts. </summary>
+        [SerializeField, HideInInspector] private string nodeId;
         /// <summary> Position on the <see cref="NodeGraph"/> </summary>
         [SerializeField] public Vector2 position;
         /// <summary> It is recommended not to modify these at hand. Instead, see <see cref="InputAttribute"/> and <see cref="OutputAttribute"/> </summary>
@@ -121,8 +123,24 @@ namespace XNode {
         protected void OnEnable() {
             if (graphHotfix != null) graph = graphHotfix;
             graphHotfix = null;
+            EnsureNodeId();
             UpdatePorts();
             Init();
+        }
+
+        public string NodeId {
+            get {
+                EnsureNodeId();
+                return nodeId;
+            }
+        }
+
+        internal void RegenerateNodeId() {
+            nodeId = Guid.NewGuid().ToString("N");
+        }
+
+        private void EnsureNodeId() {
+            if (string.IsNullOrEmpty(nodeId)) RegenerateNodeId();
         }
 
         /// <summary> Update static ports and dynamic ports managed by DynamicPortLists to reflect class fields. This happens automatically on enable or on redrawing a dynamic port list. </summary>
@@ -232,6 +250,16 @@ namespace XNode {
             else return fallback;
         }
 
+        /// <summary> Return an input value for one graph execution context. </summary>
+        public T GetInputValue<T>(
+            string fieldName,
+            GraphExecutionContext context,
+            T fallback = default(T)) {
+            NodePort port = GetPort(fieldName);
+            if (port != null && port.IsConnected) return port.GetInputValue<T>(context);
+            return fallback;
+        }
+
         /// <summary> Return all input values for a specified port. Returns fallback value if no ports are connected </summary>
         /// <param name="fieldName">Field name of requested input port</param>
         /// <param name="fallback">If no ports are connected, this value will be returned</param>
@@ -246,6 +274,14 @@ namespace XNode {
         public virtual object GetValue(NodePort port) {
             Debug.LogWarning("No GetValue(NodePort port) override defined for " + GetType());
             return null;
+        }
+
+        /// <summary>
+        /// Returns a value using one execution context. Override this for context-aware providers.
+        /// Existing nodes remain compatible through the context-free overload.
+        /// </summary>
+        public virtual object GetValue(NodePort port, GraphExecutionContext context) {
+            return GetValue(port);
         }
 #endregion
 

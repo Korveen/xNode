@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEditor;
 using UnityEditor.Callbacks;
 using UnityEngine;
@@ -10,9 +11,22 @@ namespace XNodeEditor {
     public partial class NodeEditorWindow : EditorWindow {
         public static NodeEditorWindow current;
 
-        /// <summary> Stores node positions for all nodePorts. </summary>
+        /// <summary> Stores port handle rects in node-local space. Add node.position when drawing. </summary>
         public Dictionary<XNode.NodePort, Rect> portConnectionPoints { get { return _portConnectionPoints; } }
         private Dictionary<XNode.NodePort, Rect> _portConnectionPoints = new Dictionary<XNode.NodePort, Rect>();
+        [SerializeField] private bool _portRectsLocal;
+
+        public void SetNodePosition(XNode.Node node, Vector2 position) {
+            if (node == null) return;
+            node.position = position;
+        }
+
+        public bool TryGetPortGridRect(XNode.NodePort port, out Rect gridRect) {
+            gridRect = default;
+            if (port == null || !_portConnectionPoints.TryGetValue(port, out gridRect)) return false;
+            if (port.node != null) gridRect.position += port.node.position;
+            return true;
+        }
         [SerializeField] private NodePortReference[] _references = new NodePortReference[0];
         [SerializeField] private Rect[] _rects = new Rect[0];
 
@@ -42,6 +56,8 @@ namespace XNodeEditor {
         }
 
         private void OnDisable() {
+            Undo.undoRedoPerformed -= OnUndoRedo;
+            _portRectsLocal = true;
             // Cache portConnectionPoints before serialization starts
             int count = portConnectionPoints.Count;
             _references = new NodePortReference[count];
@@ -55,6 +71,8 @@ namespace XNodeEditor {
         }
 
         private void OnEnable() {
+            Undo.undoRedoPerformed -= OnUndoRedo;
+            Undo.undoRedoPerformed += OnUndoRedo;
             // Reload portConnectionPoints if there are any
             int length = _references.Length;
             if (length == _rects.Length) {
@@ -63,6 +81,25 @@ namespace XNodeEditor {
                     if (nodePort != null)
                         _portConnectionPoints.Add(nodePort, _rects[i]);
                 }
+            }
+            if (!_portRectsLocal) {
+                ConvertPortRectsToLocal();
+                _portRectsLocal = true;
+            }
+        }
+
+        private void OnUndoRedo() {
+            Repaint();
+        }
+
+        private void ConvertPortRectsToLocal() {
+            List<XNode.NodePort> ports = new List<XNode.NodePort>(_portConnectionPoints.Keys);
+            for (int i = 0; i < ports.Count; i++) {
+                XNode.NodePort port = ports[i];
+                if (port == null || port.node == null) continue;
+                Rect rect = _portConnectionPoints[port];
+                rect.position -= port.node.position;
+                _portConnectionPoints[port] = rect;
             }
         }
 
@@ -73,6 +110,188 @@ namespace XNodeEditor {
         private Vector2 _panOffset;
         public float zoom { get { return _zoom; } set { _zoom = Mathf.Clamp(value, NodeEditorPreferences.GetSettings().minZoom, NodeEditorPreferences.GetSettings().maxZoom); Repaint(); } }
         private float _zoom = 1;
+        [SerializeField] private bool showBlackboard;
+        [SerializeField] private float blackboardWidth = 300f;
+        [SerializeField] private string nodeSearch = "";
+        [SerializeField] private string highlightedVariableId = "";
+
+        internal bool ShowBlackboard {
+            get => showBlackboard;
+            set {
+                showBlackboard = value;
+                Repaint();
+            }
+        }
+
+        internal float BlackboardWidth {
+            get => blackboardWidth;
+            set => blackboardWidth = Mathf.Clamp(value, 220f, 520f);
+        }
+
+        public const float OverlayToolbarHeight = 21f;
+
+        public int TabPadding => isDocked() ? 19 : 22;
+
+        internal Rect GetToolbarHitRect() {
+            return new Rect(0f, 0f, position.width, OverlayToolbarHeight);
+        }
+
+        internal Rect GetBlackboardHitRect() {
+            return new Rect(
+                Mathf.Max(0f, position.width - BlackboardWidth),
+                OverlayToolbarHeight,
+                BlackboardWidth,
+                Mathf.Max(0f, position.height - OverlayToolbarHeight));
+        }
+
+        internal Rect GetToolbarRect(float originY = 0f) {
+            return new Rect(0f, originY, position.width, OverlayToolbarHeight);
+        }
+
+        internal Rect GetBlackboardRect(float originY = 0f) {
+            float y = originY + OverlayToolbarHeight;
+            return new Rect(
+                Mathf.Max(0f, position.width - BlackboardWidth),
+                y,
+                BlackboardWidth,
+                Mathf.Max(0f, position.height - y));
+        }
+
+        internal bool IsPointerOverOverlay() {
+            Vector2 mouse = Event.current.mousePosition;
+            if (GetToolbarHitRect().Contains(mouse)) return true;
+            return ShowBlackboard && GetBlackboardHitRect().Contains(mouse);
+        }
+
+        internal static bool IsOverlayBlockingEvent(Event e) {
+            return e.isMouse ||
+                   e.type == EventType.ScrollWheel ||
+                   e.type == EventType.ContextClick ||
+                   e.type == EventType.DragUpdated ||
+                   e.type == EventType.DragPerform;
+        }
+
+        internal bool ShouldDrawNodeFields {
+            get {
+                float compactZoom = NodeEditorPreferences.GetSettings().compactNodeZoom;
+                return compactZoom <= 0f || zoom < compactZoom;
+            }
+        }
+
+        internal string HighlightedVariableId {
+            get => highlightedVariableId ?? "";
+            set => highlightedVariableId = value ?? "";
+        }
+
+        internal string NodeSearch {
+            get => nodeSearch ?? "";
+            set {
+                string normalized = value ?? "";
+                if (nodeSearch == normalized) return;
+                nodeSearch = normalized;
+                Repaint();
+            }
+        }
+
+        internal bool IsNodeSearchActive => !string.IsNullOrWhiteSpace(NodeSearch);
+
+        internal bool IsHighlightFilterActive =>
+            IsNodeSearchActive || !string.IsNullOrEmpty(highlightedVariableId);
+
+        internal bool HighlightHasMatches { get; private set; }
+
+        internal void RefreshHighlightHasMatches() {
+            HighlightHasMatches = false;
+            if (!IsHighlightFilterActive || graph?.nodes == null) return;
+            for (int i = 0; i < graph.nodes.Count; i++) {
+                XNode.Node node = graph.nodes[i];
+                if (node != null && IsNodeHighlighted(node)) {
+                    HighlightHasMatches = true;
+                    return;
+                }
+            }
+        }
+
+        internal bool IsNodeHighlighted(XNode.Node node) {
+            if (node == null || !IsHighlightFilterActive) return true;
+
+            if (IsNodeSearchActive) {
+                string query = NodeSearch.Trim();
+                if (!NodeMatchesSearch(node, query)) {
+                    return false;
+                }
+            }
+
+            if (string.IsNullOrEmpty(highlightedVariableId)) return true;
+            if (NodeReferencesVariable(node, highlightedVariableId)) return true;
+
+            foreach (XNode.NodePort input in node.Inputs) {
+                if (input == null) continue;
+                for (int i = 0; i < input.ConnectionCount; i++) {
+                    XNode.NodePort connection = input.GetConnection(i);
+                    if (connection != null && NodeReferencesVariable(connection.node, highlightedVariableId)) {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        internal XNode.Node[] GetNodeSearchMatches() {
+            if (!IsNodeSearchActive || graph?.nodes == null) return Array.Empty<XNode.Node>();
+            string query = NodeSearch.Trim();
+            return graph.nodes
+                .Where(node =>
+                    NodeMatchesSearch(node, query))
+                .ToArray();
+        }
+
+        public static bool NodeMatchesSearch(XNode.Node node, string query) {
+            if (node == null || string.IsNullOrWhiteSpace(query)) return false;
+            string normalized = query.Trim();
+            return node.name.IndexOf(normalized, StringComparison.OrdinalIgnoreCase) >= 0 ||
+                   node.GetType().Name.IndexOf(normalized, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        internal void FrameNodeSearchResult(int direction) {
+            XNode.Node[] matches = GetNodeSearchMatches();
+            if (matches.Length == 0) return;
+
+            int index = Array.IndexOf(matches, Selection.activeObject as XNode.Node);
+            if (index < 0) {
+                index = direction < 0 ? matches.Length - 1 : 0;
+            } else {
+                index = (index + direction + matches.Length) % matches.Length;
+            }
+
+            Selection.activeObject = matches[index];
+            FrameSelection();
+        }
+
+        internal void ToggleHighlightedVariable(string variableId) {
+            highlightedVariableId = highlightedVariableId == variableId ? "" : variableId ?? "";
+            Repaint();
+        }
+
+        private static bool NodeReferencesVariable(XNode.Node node, string variableId) {
+            if (node == null || string.IsNullOrEmpty(variableId)) return false;
+
+            SerializedObject serializedNode = new SerializedObject(node);
+            SerializedProperty iterator = serializedNode.GetIterator();
+            bool enterChildren = true;
+            while (iterator.Next(enterChildren)) {
+                enterChildren = iterator.propertyType == SerializedPropertyType.Generic ||
+                                iterator.propertyType == SerializedPropertyType.ManagedReference;
+                if (iterator.propertyType == SerializedPropertyType.String &&
+                    iterator.name == "variableId" &&
+                    iterator.stringValue == variableId) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
 
         void OnFocus() {
             current = this;
@@ -146,6 +365,11 @@ namespace XNodeEditor {
 
         public Vector2 WindowToGridPosition(Vector2 windowPosition) {
             return (windowPosition - (position.size * 0.5f) - (panOffset / zoom)) * zoom;
+        }
+
+        public Vector2 WindowToGridPositionNoClipped(Vector2 zoomedPosition) {
+            Vector2 center = position.size * 0.5f;
+            return zoomedPosition - (center * zoom) - panOffset;
         }
 
         public Vector2 GridToWindowPosition(Vector2 gridPosition) {
