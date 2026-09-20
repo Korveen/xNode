@@ -56,13 +56,12 @@ namespace XNodeEditor {
             GUILayout.BeginHorizontal();
             GUILayout.Label("Blackboard", EditorStyles.boldLabel);
             GUILayout.FlexibleSpace();
-            using (new EditorGUI.DisabledScope(Application.isPlaying)) {
-                if (GUILayout.Button("+", EditorStyles.miniButton, GUILayout.Width(22f))) {
-                    ShowAddMenu(window, new Rect(Event.current.mousePosition, Vector2.zero));
-                }
-            }
             GUILayout.EndHorizontal();
 
+            DrawEmbedded(window);
+        }
+
+        internal static void DrawEmbedded(NodeEditorWindow window) {
             if (!EnsureList(window)) {
                 EditorGUILayout.HelpBox("Blackboard data could not be serialized.", MessageType.Error);
                 return;
@@ -106,7 +105,7 @@ namespace XNodeEditor {
                 cachedVariables,
                 allowStructuralEdits,
                 false,
-                false,
+                allowStructuralEdits,
                 allowStructuralEdits) {
                 elementHeightCallback = index => {
                     if (index < 0 || index >= cachedVariables.arraySize) {
@@ -160,7 +159,10 @@ namespace XNodeEditor {
             }
 
             EditorGUI.LabelField(typeRect, variable.ValueType.PrettyName(), EditorStyles.miniLabel);
-            if (GUI.Button(getRect, "Get")) CreateGetter(window, variable);
+            if (GUI.Button(getRect, "Get")) {
+                CreateGetter(window, variable);
+                window.RebuildUi();
+            }
 
             SerializedProperty defaultValue = variableProperty.FindPropertyRelative("defaultValue");
             if (defaultValue == null) return;
@@ -202,7 +204,7 @@ namespace XNodeEditor {
             window.Repaint();
         }
 
-        private static void CreateGetter(NodeEditorWindow window, XNode.BlackboardVariable variable) {
+        internal static void CreateGetter(NodeEditorWindow window, XNode.BlackboardVariable variable) {
             if (!GetterTypes.TryGetValue(variable.ValueType, out Type getterType)) {
                 Debug.LogWarning($"No Blackboard getter node is registered for {variable.ValueType}.");
                 return;

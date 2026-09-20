@@ -31,9 +31,9 @@ namespace XNodeEditor {
 
         private XNode.Node hoveredNode = null;
         [NonSerialized] public XNode.NodePort hoveredPort = null;
-        [NonSerialized] private XNode.NodePort draggedOutput = null;
+        [NonSerialized] internal XNode.NodePort draggedOutput = null;
         [NonSerialized] private XNode.NodePort draggedOutputTarget = null;
-        [NonSerialized] private XNode.NodePort draggedInput = null;
+        [NonSerialized] internal XNode.NodePort draggedInput = null;
         [NonSerialized] private XNode.NodePort draggedInputTarget = null;
         [NonSerialized] private XNode.NodePort autoConnectOutput = null;
         [NonSerialized] private List<Vector2> draggedOutputReroutes = new List<Vector2>();
@@ -97,8 +97,8 @@ namespace XNodeEditor {
                                     Undo.RecordObject(node, "Moved Node");
                                     Vector2 next = mousePos + dragOffset[i];
                                     if (gridSnap) {
-                                        next.x = (Mathf.Round((next.x + 8) / 16) * 16) - 8;
-                                        next.y = (Mathf.Round((next.y + 8) / 16) * 16) - 8;
+                                        float step = Mathf.Max(1f, NodeEditorPreferences.GetShared().gridMinorStep);
+                                        next = XNodeEditor.Ui.GridElement.Snap(next, step);
                                     }
                                     SetNodePosition(node, next);
                                 }
@@ -107,8 +107,8 @@ namespace XNodeEditor {
                             for (int i = 0; i < selectedReroutes.Count; i++) {
                                 Vector2 pos = mousePos + dragOffset[Selection.objects.Length + i];
                                 if (gridSnap) {
-                                    pos.x = (Mathf.Round(pos.x / 16) * 16);
-                                    pos.y = (Mathf.Round(pos.y / 16) * 16);
+                                    float step = Mathf.Max(1f, NodeEditorPreferences.GetShared().gridMinorStep);
+                                    pos = XNodeEditor.Ui.GridElement.Snap(pos, step);
                                 }
                                 selectedReroutes[i].SetPoint(pos);
                             }
@@ -414,7 +414,7 @@ namespace XNodeEditor {
             float viewWidth = Mathf.Max(120f, position.width - (ShowBlackboard ? BlackboardWidth : 0f) - padding);
             float viewHeight = Mathf.Max(120f, position.height - GetToolbarRect().height - padding);
             float fitZoom = Mathf.Max(bounds.x / viewWidth, bounds.y / viewHeight, 0.01f);
-            NodeEditorPreferences.Settings settings = NodeEditorPreferences.GetSettings();
+            NodeEditorPreferences.SharedSettings settings = NodeEditorPreferences.GetShared();
             zoom = Mathf.Clamp(fitZoom, settings.minZoom, settings.maxZoom);
 
             float blackboard = ShowBlackboard ? BlackboardWidth : 0f;

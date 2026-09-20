@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UIElements;
 #if UNITY_2019_1_OR_NEWER && USE_ADVANCED_GENERIC_MENU
 using GenericMenu = XNodeEditor.AdvancedGenericMenu;
 #endif
@@ -20,6 +21,19 @@ namespace XNodeEditor {
         /// <summary> Extra toolbar controls for a specific graph type. Drawn inside the window toolbar. </summary>
         public virtual void OnToolbarGUI() { }
 
+        public virtual void BuildToolbar(VisualElement slot) { }
+
+        public virtual void BuildOverlay(VisualElement overlay) { }
+
+        public virtual void ApplyStyles(VisualElement root) { }
+
+        public virtual void OnNodesMoved() { }
+
+        public virtual bool TryGetNodeIndex(XNode.Node node, out int index) {
+            index = -1;
+            return false;
+        }
+
         /// <summary> Called when opened by NodeEditorWindow </summary>
         public virtual void OnOpen() { }
 
@@ -30,16 +44,16 @@ namespace XNodeEditor {
         public virtual void OnWindowFocusLost() { }
 
         public virtual Texture2D GetGridTexture() {
-            return NodeEditorPreferences.GetSettings().gridTexture;
+            return NodeEditorPreferences.GetGridTexture();
         }
 
         public virtual Texture2D GetSecondaryGridTexture() {
-            return NodeEditorPreferences.GetSettings().crossTexture;
+            return NodeEditorPreferences.GetCrossTexture();
         }
 
         /// <summary> Return default settings for this graph type. This is the settings the user will load if no previous settings have been saved. </summary>
-        public virtual NodeEditorPreferences.Settings GetDefaultPreferences() {
-            return new NodeEditorPreferences.Settings();
+        public virtual NodeEditorPreferences.GraphTypeSettings GetDefaultPreferences() {
+            return new NodeEditorPreferences.GraphTypeSettings();
         }
 
         /// <summary> Returns context node menu path. Null or empty strings for hidden nodes. </summary>
@@ -146,7 +160,7 @@ namespace XNodeEditor {
 
             // If dragging the noodle, draw solid, slightly transparent
             if (input == null) {
-                Color a = GetTypeColor(output.ValueType);
+                Color a = GetPortColor(output);
                 grad.SetKeys(
                     new GradientColorKey[] { new GradientColorKey(a, 0f) },
                     new GradientAlphaKey[] { new GradientAlphaKey(0.6f, 0f) }
@@ -154,8 +168,8 @@ namespace XNodeEditor {
             }
             // If normal, draw gradient fading from one input color to the other
             else {
-                Color a = GetTypeColor(output.ValueType);
-                Color b = GetTypeColor(input.ValueType);
+                Color a = GetPortColor(output);
+                Color b = GetPortColor(input);
                 // If any port is hovered, tint white
                 if (window.hoveredPort == output || window.hoveredPort == input) {
                     a = Color.Lerp(a, Color.white, 0.8f);
@@ -173,7 +187,7 @@ namespace XNodeEditor {
         /// <param name="output"> The output this noodle comes from. Never null. </param>
         /// <param name="input"> The output this noodle comes from. Can be null if we are dragging the noodle. </param>
         public virtual float GetNoodleThickness(XNode.NodePort output, XNode.NodePort input) {
-            return NodeEditorPreferences.GetSettings().noodleThickness;
+            return NodeEditorPreferences.GetFor(this).noodleThickness;
         }
 
         /// <summary>
@@ -186,16 +200,21 @@ namespace XNodeEditor {
         }
 
         public virtual NoodlePath GetNoodlePath(XNode.NodePort output, XNode.NodePort input) {
-            return NodeEditorPreferences.GetSettings().noodlePath;
+            return NodeEditorPreferences.GetFor(this).noodlePath;
         }
 
         public virtual NoodleStroke GetNoodleStroke(XNode.NodePort output, XNode.NodePort input) {
-            return NodeEditorPreferences.GetSettings().noodleStroke;
+            return NodeEditorPreferences.GetFor(this).noodleStroke;
+        }
+
+        public virtual float GetNoodleTension(XNode.NodePort output, XNode.NodePort input) {
+            float tension = NodeEditorPreferences.GetFor(this).noodleTension;
+            return tension > 0.01f ? tension : 0.45f;
         }
 
         /// <summary> Returned color is used to color ports </summary>
         public virtual Color GetPortColor(XNode.NodePort port) {
-            return GetTypeColor(port.ValueType);
+            return NodeEditorPreferences.ResolvePortColor(port, NodeEditorPreferences.GetFor(this), false);
         }
 
         /// <summary>

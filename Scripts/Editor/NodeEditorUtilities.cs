@@ -89,6 +89,31 @@ namespace XNodeEditor {
             return true;
         }
 
+        public static bool TryGetGraphPortColor(XNode.NodePort port, out Color color) {
+            color = default;
+            if (port == null) return false;
+            if (port.node != null && !string.IsNullOrEmpty(port.fieldName)) {
+                FieldInfo field = port.node.GetType().GetFieldInfo(port.fieldName);
+                var fieldAttr = field != null
+                    ? field.GetCustomAttribute<XNode.Node.GraphPortColorAttribute>(true)
+                    : null;
+                if (fieldAttr != null) {
+                    color = fieldAttr.color;
+                    return true;
+                }
+            }
+            Type type = port.ValueType;
+            while (type != null && type != typeof(object)) {
+                var typeAttr = type.GetCustomAttribute<XNode.Node.GraphPortColorAttribute>(false);
+                if (typeAttr != null) {
+                    color = typeAttr.color;
+                    return true;
+                }
+                type = type.BaseType;
+            }
+            return false;
+        }
+
         public static List<PropertyAttribute> GetCachedPropertyAttribs(Type classType, string fieldName) {
             Dictionary<string, List<PropertyAttribute>> typeFields;
             if (!typeOrderedPropertyAttributes.TryGetValue(classType, out typeFields)) {

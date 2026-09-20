@@ -1,0 +1,451 @@
+:root {
+    --xn-bg: #1c1c1c;
+    --xn-toolbar: #2d2d2d;
+    --xn-panel: #292929;
+    --xn-border: #111111;
+    --xn-text: #e6e6e6;
+    --xn-muted: #9a9a9a;
+    --xn-accent: #4c8dff;
+    --xn-node-bg: #3a3a3a;
+    --xn-node-header: #4a4a4a;
+    --xn-port-size: 14px;
+    --xn-radius: 6px;
+    --xn-field-pad: 8px;
+    --xn-label-width: 120px;
+}
+
+.graph-root {
+    flex-grow: 1;
+    background-color: var(--xn-bg);
+    color: var(--xn-text);
+}
+
+.graph-toolbar {
+    flex-direction: row;
+    align-items: center;
+    height: 24px;
+    min-height: 24px;
+    padding: 0 6px;
+    background-color: var(--xn-toolbar);
+    border-bottom-width: 1px;
+    border-bottom-color: var(--xn-border);
+}
+
+.graph-toolbar > * {
+    margin-right: 4px;
+}
+
+.graph-workspace {
+    flex-grow: 1;
+    flex-direction: row;
+}
+
+.graph-viewport {
+    flex-grow: 1;
+    overflow: hidden;
+    background-color: #202020;
+}
+
+.graph-content {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 16000px;
+    height: 16000px;
+    transform-origin: 0 0;
+    overflow: visible;
+}
+
+.graph-grid,
+.graph-noodles,
+.graph-nodes,
+.graph-reroutes {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: auto;
+    bottom: auto;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.graph-blackboard {
+    width: 300px;
+    min-width: 220px;
+    max-width: 520px;
+    background-color: var(--xn-panel);
+    border-left-width: 1px;
+    border-left-color: var(--xn-border);
+    padding: 8px;
+    overflow: auto;
+}
+
+.graph-blackboard.hidden {
+    display: none;
+}
+
+.graph-overlay {
+    position: absolute;
+    left: 10px;
+    top: 34px;
+    width: 520px;
+}
+
+.node-view {
+    position: absolute;
+    flex-direction: column;
+    align-items: stretch;
+    background-color: var(--xn-node-bg);
+    border-width: 1px;
+    border-color: #101010;
+    border-radius: var(--xn-radius);
+    min-width: 240px;
+    overflow: visible;
+    --unity-base-field-label-width: var(--xn-label-width);
+}
+
+.node-view.selected {
+    border-color: #f0c040;
+    border-width: 2px;
+}
+
+.node-view.dimmed {
+    opacity: 0.45;
+}
+
+.node-header {
+    width: 100%;
+    height: 30px;
+    flex-shrink: 0;
+    background-color: var(--xn-node-header);
+    border-top-left-radius: var(--xn-radius);
+    border-top-right-radius: var(--xn-radius);
+    padding: 0 8px;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+}
+
+.node-header__title {
+    flex-grow: 1;
+    unity-font-style: bold;
+    unity-text-align: middle-center;
+    color: #ffffff;
+}
+
+.node-header__index {
+    min-width: 16px;
+    margin-right: 4px;
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.55);
+    display: none;
+}
+
+.node-header__index.visible {
+    display: flex;
+}
+
+.node-header__badge {
+    width: 38px;
+    height: 16px;
+    unity-font-style: bold;
+    unity-text-align: middle-center;
+    font-size: 10px;
+    color: #111111;
+    display: none;
+}
+
+.node-header__badge.visible {
+    display: flex;
+}
+
+.node-body {
+    flex-direction: column;
+    width: 100%;
+    padding: 4px 0 8px 0;
+    overflow: visible;
+}
+
+.node-port-row,
+.fg-out-row {
+    flex-direction: row;
+    align-items: center;
+    width: 100%;
+    min-height: 22px;
+    margin: 2px 0;
+    padding-left: var(--xn-field-pad);
+    padding-right: var(--xn-field-pad);
+    overflow: visible;
+}
+
+.node-port-row.output {
+    justify-content: flex-end;
+}
+
+.port-view {
+    width: var(--xn-port-size);
+    height: var(--xn-port-size);
+    min-width: var(--xn-port-size);
+    min-height: var(--xn-port-size);
+    border-radius: 8px;
+    border-width: 2px;
+    border-color: #1a1a1a;
+    background-color: #888888;
+    margin-top: 0;
+    margin-bottom: 0;
+    flex-shrink: 0;
+}
+
+.port-view.input {
+    margin-left: -14px;
+    margin-right: 0;
+}
+
+.port-view.output {
+    margin-left: 0;
+    margin-right: -14px;
+}
+
+.port-view.hovered {
+    border-color: #ffffff;
+}
+
+.port-view.vertical {
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.port-spacer {
+    flex-grow: 1;
+}
+
+.node-port-row.inout {
+    justify-content: space-between;
+}
+
+.node-port-row.inout .port-label {
+    padding: 0;
+}
+
+.node-view.compact .xn-field,
+.node-view.compact .unity-property-field,
+.node-view.compact .unity-base-field,
+.node-view.compact .fg-preview,
+.node-view.compact .bt-children,
+.node-view.compact .bb-row,
+.node-view.compact .unity-help-box,
+.node-view.compact .unity-button,
+.node-view.compact .xn-list-footer,
+.node-view.compact .unity-foldout,
+.node-view.compact .unity-enum-field,
+.node-view.compact .unity-object-field,
+.node-view.compact .unity-image,
+.node-view.compact Image {
+    visibility: hidden;
+    picking-mode: ignore;
+}
+
+.node-body > .unity-property-field,
+.node-body > .unity-base-field,
+.node-body > .xn-field {
+    min-width: 0;
+    margin: 2px var(--xn-field-pad);
+    padding: 0;
+}
+
+.node-view .unity-property-field > .unity-base-field {
+    margin: 0;
+    padding: 0;
+}
+
+.node-view .unity-base-field > .unity-base-field__label,
+.node-view .unity-base-field__label,
+.node-view .unity-toggle__label {
+    min-width: var(--xn-label-width);
+    width: var(--xn-label-width);
+    max-width: var(--xn-label-width);
+    flex-shrink: 0;
+    margin: 0 6px 0 0;
+    padding: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.node-view .unity-base-field--no-label > .unity-base-field__label,
+.node-view .unity-property-field--no-label .unity-base-field__label {
+    min-width: 0;
+    width: 0;
+    max-width: 0;
+    margin: 0;
+    display: none;
+}
+
+.node-view .unity-base-field__input,
+.node-view .unity-toggle__input,
+.node-view .unity-base-slider,
+.node-view .unity-composite-field {
+    min-width: 32px;
+    flex-grow: 1;
+    flex-shrink: 1;
+    margin: 0;
+}
+
+.node-port-row .unity-base-field,
+.node-port-row .unity-property-field,
+.node-port-row .xn-field {
+    margin: 0;
+    flex-grow: 1;
+    min-width: 0;
+}
+
+.fg-out-row .unity-button {
+    width: 18px;
+    min-width: 18px;
+    height: 18px;
+    margin: 0 1px 0 0;
+    padding: 0;
+}
+
+.xn-list-footer {
+    flex-direction: row;
+    justify-content: flex-end;
+    margin: 4px 8px 0 0;
+}
+
+.xn-dynamic-list .node-port-row.selected {
+    background-color: rgba(56, 107, 184, 0.28);
+}
+
+.graph-reroutes {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+}
+
+.reroute-handle {
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background-color: #f0c040;
+    border-radius: 5px;
+    border-width: 1px;
+    border-color: #111111;
+}
+
+.bt-parent-slot {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    height: 14px;
+    min-height: 14px;
+    margin-bottom: -14px;
+    overflow: visible;
+}
+
+.bt-add-child {
+    height: 22px;
+    margin: 4px 8px 0 8px;
+    background-color: rgba(36, 46, 61, 0.92);
+    unity-text-align: middle-center;
+    color: var(--xn-muted);
+    font-size: 11px;
+}
+
+.bt-add-child.active {
+    background-color: rgba(56, 82, 107, 0.95);
+    color: #cde6ff;
+}
+
+.bt-shelf {
+    height: 18px;
+    margin-top: 4px;
+    padding: 0 12px;
+    background-color: rgba(26, 31, 38, 0.95);
+    flex-direction: row;
+    justify-content: space-around;
+    align-items: center;
+    overflow: visible;
+}
+
+.toolbar-label {
+    font-size: 11px;
+    color: var(--xn-muted);
+}
+
+.toolbar-spacer {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 8px;
+}
+
+.graph-toolbar .bb-toolbar-toggle,
+.graph-toolbar .toolbar-toggle {
+    height: 18px;
+    margin-right: 0;
+    padding: 1px 8px;
+    background-color: rgba(0, 0, 0, 0);
+    background-image: none;
+    border-width: 0;
+    border-radius: 3px;
+    color: var(--xn-text);
+    font-size: 11px;
+}
+
+.graph-toolbar .bb-toolbar-toggle:hover,
+.graph-toolbar .toolbar-toggle:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+.graph-toolbar .bb-toolbar-toggle.active,
+.graph-toolbar .toolbar-toggle.active {
+    background-color: var(--xn-accent);
+    color: #ffffff;
+}
+
+.graph-cursor {
+    position: absolute;
+    left: 8px;
+    bottom: 4px;
+    right: auto;
+    top: auto;
+    font-size: 11px;
+    color: var(--xn-muted);
+    picking-mode: ignore;
+}
+
+.bb-row {
+    margin-bottom: 8px;
+    padding: 4px;
+    background-color: #242424;
+}
+
+.bb-row.highlighted {
+    background-color: rgba(56, 107, 184, 0.28);
+}
+
+.selection-box {
+    position: absolute;
+    border-width: 1px;
+    border-color: #ffffff;
+    background-color: rgba(0, 0, 0, 0.12);
+    display: none;
+}
+
+.banner {
+    padding: 8px 12px;
+    background-color: rgba(36, 18, 18, 0.94);
+    border-left-width: 4px;
+    border-left-color: #db473d;
+    color: #ebcfcf;
+    white-space: normal;
+}
+
+.banner.warning {
+    background-color: rgba(41, 31, 13, 0.94);
+    border-left-color: #e6ad2e;
+    color: #ffe39e;
+}

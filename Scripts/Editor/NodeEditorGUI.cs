@@ -20,6 +20,7 @@ namespace XNodeEditor {
         public event Action onLateGUI;
 
         protected virtual void OnGUI() {
+            if (GraphUi != null) return;
             Event e = Event.current;
             Matrix4x4 m = GUI.matrix;
             if (graph == null) return;
@@ -588,7 +589,7 @@ namespace XNodeEditor {
 
                             // Draw selected reroute points with an outline
                             if (selectedReroutes.Contains(rerouteRef)) {
-                                GUI.color = NodeEditorPreferences.GetSettings().highlightColor;
+                                GUI.color = NodeEditorPreferences.GetShared().selectionColor;
                                 GUI.DrawTexture(rect, portStyle.normal.background);
                             }
 
@@ -701,7 +702,7 @@ namespace XNodeEditor {
                     style.padding = new RectOffset();
                     GUI.color = tint;
                     GUILayout.BeginVertical(style);
-                    GUI.color = NodeEditorPreferences.GetSettings().highlightColor;
+                    GUI.color = NodeEditorPreferences.GetShared().selectionColor;
                     GUILayout.BeginVertical(new GUIStyle(highlightStyle));
                 } else {
                     GUIStyle style = new GUIStyle(nodeEditor.GetBodyStyle());

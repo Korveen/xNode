@@ -140,7 +140,7 @@ namespace XNodeEditor {
         public static void OpenPreferences() {
             try {
 #if UNITY_2018_3_OR_NEWER
-                SettingsService.OpenUserPreferences("Preferences/Node Editor");
+                SettingsService.OpenUserPreferences("Preferences/XNode");
 #else
                 //Open preferences window
                 Assembly assembly = Assembly.GetAssembly(typeof(UnityEditor.EditorWindow));

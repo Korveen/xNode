@@ -6,6 +6,7 @@ namespace XNode {
     /// <summary>Serialized definition and default value of one Blackboard variable.</summary>
     [Serializable]
     public abstract class BlackboardVariable {
+        [HideInInspector]
         [SerializeField] private string id = Guid.NewGuid().ToString("N");
         [SerializeField] private string name = "Variable";
 
