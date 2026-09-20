@@ -1,5 +1,5 @@
 {
-  "name": "com.github.siccity.xnode",
+  "name": "com.github.korveen.xnode",
   "description": "xNode provides APIs and an editor for custom node graphs, including a per-graph Blackboard and per-run execution context.",
   "version": "2.0.0",
   "unity": "2021.3",

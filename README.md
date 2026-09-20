@@ -1,121 +1,118 @@
-<img align="right" width="100" height="100" src="https://user-images.githubusercontent.com/37786733/41541140-71602302-731a-11e8-9434-79b3a57292b6.png">
+# xNode (Korveen fork)
 
-[![Discord](https://img.shields.io/discord/361769369404964864.svg)](https://discord.gg/qgPrHv4)
-[![GitHub issues](https://img.shields.io/github/issues/Siccity/xNode.svg)](https://github.com/Siccity/xNode/issues)
-[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/Siccity/xNode/master/LICENSE.md)
-[![GitHub Wiki](https://img.shields.io/badge/wiki-available-brightgreen.svg)](https://github.com/Siccity/xNode/wiki)
-[![openupm](https://img.shields.io/npm/v/com.github.siccity.xnode?label=openupm&registry_uri=https://package.openupm.com)](https://openupm.com/packages/com.github.siccity.xnode/)
+Fork of [Siccity/xNode](https://github.com/Siccity/xNode) by Thor Brigsted. The runtime model is the same: `NodeGraph` / `Node`, `[Input]` / `[Output]`, `GetValue`. This fork adds a UITK graph window, a per-graph Blackboard, and a per-run execution context.
 
-[Downloads](https://github.com/Siccity/xNode/releases) / [Asset Store](http://u3d.as/108S) / [Documentation](https://github.com/Siccity/xNode/wiki)
+Original xNode is MIT. Copyright (c) 2017 Thor Brigsted. Keep that notice.
 
-Support xNode on [Ko-fi](https://ko-fi.com/Z8Z5DYWA) or [Patreon](https://www.patreon.com/thorbrigsted)
+## What this fork is
 
-For full Odin support, consider using [KAJed82's fork](https://github.com/KAJed82/xNode)
+A Unity package for custom node graphs. Runtime stays small. Editor is UITK (`CreateGUI` → `GraphWindow`), not the old IMGUI canvas.
 
-### xNode
-Thinking of developing a node-based plugin? Then this is for you. You can download it as an archive and unpack to a new unity project, or connect it as git submodule.
+Use it as a base for state machines, dialogue, behaviour trees, or any graph you own. It is not a complete game framework.
 
-xNode is super userfriendly, intuitive and will help you reap the benefits of node graphs in no time.
-With a minimal footprint, it is ideal as a base for custom state machines, dialogue systems, decision makers etc.
+### Runtime
 
-<p align="center">
-  <img src="https://user-images.githubusercontent.com/6402525/53689100-3821e680-3d4e-11e9-8440-e68bd802bfd9.png">
-</p>
+* `Node` / `NodeGraph` ScriptableObjects
+* Ports from `[Input]` / `[Output]`
+* `GetValue(NodePort)` and `GetValue(NodePort, GraphExecutionContext)`
+* `BlackboardDefinition` on the graph, `BlackboardInstance` at run time
+* Typed Blackboard variables (`BlackboardVariable<T>`) and `GetBlackboardVariableNode<T>`
+* Does not require third-party plugins at runtime
 
-### Key features
-* Lightweight in runtime
-* Very little boilerplate code
-* Strong separation of editor and runtime code
-* No runtime reflection (unless you need to edit/build node graphs at runtime. In this case, all reflection is cached.)
-* Does not rely on any 3rd party plugins
-* Custom node inspector code is very similar to regular custom inspector code
-* Supported from Unity 5.3 and up
+### Editor
 
-### Wiki
-* [Getting started](https://github.com/Siccity/xNode/wiki/Getting%20Started) - create your very first node node and graph
-* [Examples branch](https://github.com/Siccity/xNode/tree/examples) - look at other small projects
+* UITK window: pan, zoom, grid snap, noodles, reroutes, search
+* Preferences split: shared (grid, zoom) vs per graph type (noodles, port color slots)
+* Port colors: named slots, then `[Node.GraphPortColor]` on a field or type
+* Blackboard panel: add / reorder / rename / Get node. Extra `BlackboardVariable<T>` types are picked up by reflection
+* Custom node UI: `BuildHeader` / `BuildBody` / `BuildToolbar` / `BuildOverlay`
 
-### Installation
-<details><summary>Instructions</summary>
+`OnHeaderGUI` / `OnBodyGUI` / `OnToolbarGUI` still exist so older project editors compile. The window does not call them.
 
-### Installing with Unity Package Manager
-***Via Git URL***
-*(Requires Unity version 2018.3.0b7  or above)*
+## Requirements
 
-To install this project as a [Git dependency](https://docs.unity3d.com/Manual/upm-git.html) using the Unity Package Manager,
-add the following line to your project's `manifest.json`:
+* Unity 2021.3 or newer (`package.json`). Developed and used on Unity 6.
+* Package id: `com.github.korveen.xnode`
 
-```
-"com.github.siccity.xnode": "https://github.com/siccity/xNode.git"
+## Install
+
+Git URL in `Packages/manifest.json`:
+
+```json
+"com.github.korveen.xnode": "https://github.com/Korveen/xNode.git"
 ```
 
-You will need to have Git installed and available in your system's PATH.
+If you use assembly definitions, reference `XNode` and `XNodeEditor`.
 
-If you are using [Assembly Definitions](https://docs.unity3d.com/Manual/ScriptCompilationAssemblyDefinitionFiles.html) in your project, you will need to add `XNode` and/or `XNodeEditor` as Assembly Definition References.
+Do not install Siccity/xNode or OpenUPM `com.github.siccity.xnode`. That is the original package, not this fork.
 
-***Via OpenUPM***
+## Node
 
-The package is available on the [openupm registry](https://openupm.com). It's recommended to install it via [openupm-cli](https://github.com/openupm/openupm-cli).
-
-```
-openupm add com.github.siccity.xnode
-```
-
-### Installing with git
-***Via Git Submodule***
-
-To add xNode as a [submodule](https://git-scm.com/book/en/v2/Git-Tools-Submodules) in your existing git project,
-run the following git command from your project root:
-
-```
-git submodule add git@github.com:Siccity/xNode.git Assets/Submodules/xNode
-```
-
-### Installing 'the old way'
-If no source control or package manager is available to you, you can simply copy/paste the source files into your assets folder.
-
-</details>
-
-### Node example:
 ```csharp
-// public classes deriving from Node are registered as nodes for use within a graph
 public class MathNode : Node {
-    // Adding [Input] or [Output] is all you need to do to register a field as a valid port on your node 
     [Input] public float a;
     [Input] public float b;
-    // The value of an output node field is not used for anything, but could be used for caching output results
     [Output] public float result;
-    [Output] public float sum;
 
-    // The value of 'mathType' will be displayed on the node in an editable format, similar to the inspector
+    public enum MathType { Add, Subtract, Multiply, Divide }
     public MathType mathType = MathType.Add;
-    public enum MathType { Add, Subtract, Multiply, Divide}
-    
-    // GetValue should be overridden to return a value for any specified output port
-    public override object GetValue(NodePort port) {
 
-        // Get new a and b values from input connections. Fallback to field values if input is not connected
+    public override object GetValue(NodePort port) {
         float a = GetInputValue<float>("a", this.a);
         float b = GetInputValue<float>("b", this.b);
-
-        // After you've gotten your input values, you can perform your calculations and return a value
-        if (port.fieldName == "result")
-            switch(mathType) {
-                case MathType.Add: default: return a + b;
-                case MathType.Subtract: return a - b;
-                case MathType.Multiply: return a * b;
-                case MathType.Divide: return a / b;
-            }
-        else if (port.fieldName == "sum") return a + b;
-        else return 0f;
+        if (port.fieldName != "result") return 0f;
+        switch (mathType) {
+            case MathType.Subtract: return a - b;
+            case MathType.Multiply: return a * b;
+            case MathType.Divide: return a / b;
+            default: return a + b;
+        }
     }
 }
 ```
 
-### Plugins
-Plugins are repositories that add functionality to xNode
-* [xNodeGroups](https://github.com/Siccity/xNodeGroups): adds resizable groups
+With a run context (Blackboard / runner):
 
-### Community
-Join the [Discord](https://discord.gg/qgPrHv4 "Join Discord server") server to leave feedback or get support.
-Feel free to also leave suggestions/requests in the [issues](https://github.com/Siccity/xNode/issues "Go to Issues") page.
+```csharp
+public override object GetValue(NodePort port, GraphExecutionContext context) {
+    return GetValue(port);
+}
+```
+
+Port color:
+
+```csharp
+[Output, GraphPortColor("#4c8dff")] public float value;
+```
+
+Custom editor (UITK):
+
+```csharp
+[CustomNodeEditor(typeof(MathNode))]
+public class MathNodeEditor : NodeEditor {
+    public override void BuildBody(XNodeEditor.Ui.NodeView view) {
+        XNodeEditor.Ui.NodeUiUtility.BindNodeFields(view, serializedObject);
+    }
+}
+```
+
+Blackboard type in your project (not in this package):
+
+```csharp
+[Serializable]
+public sealed class ActorBlackboardVariable : BlackboardVariable<Actor> { }
+
+public sealed class GetActorBlackboardVariableNode : GetBlackboardVariableNode<Actor> { }
+```
+
+`Actor` must be a Unity-serializable type.
+
+## Not in this fork
+
+* [xNodeGroups](https://github.com/Siccity/xNodeGroups) — IMGUI. Does not draw on the UITK canvas. Do not expect groups to work.
+* Siccity wiki / Discord / Asset Store / OpenUPM — those are the original project, not this fork.
+* First-class Odin Inspector support. Leftover IMGUI Odin drawers may still compile; they are not the editor path.
+
+## License
+
+MIT. See [LICENSE.md](LICENSE.md).
