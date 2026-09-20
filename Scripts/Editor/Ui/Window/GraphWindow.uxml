@@ -1,0 +1,18 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="root" class="graph-root">
+        <ui:VisualElement name="toolbar" class="graph-toolbar" />
+        <ui:VisualElement name="workspace" class="graph-workspace">
+            <ui:VisualElement name="viewport" class="graph-viewport">
+                <ui:VisualElement name="content" class="graph-content">
+                    <ui:VisualElement name="grid" class="graph-grid" picking-mode="Ignore" />
+                    <ui:VisualElement name="noodles" class="graph-noodles" picking-mode="Ignore" />
+                    <ui:VisualElement name="nodes" class="graph-nodes" picking-mode="Position" />
+                </ui:VisualElement>
+                <ui:VisualElement name="selection-box" class="selection-box" picking-mode="Ignore" />
+            </ui:VisualElement>
+            <ui:VisualElement name="blackboard-resize" class="bb-resize" />
+            <ui:VisualElement name="blackboard" class="graph-blackboard" />
+        </ui:VisualElement>
+        <ui:VisualElement name="overlay" class="graph-overlay" picking-mode="Ignore" />
+    </ui:VisualElement>
+</ui:UXML>

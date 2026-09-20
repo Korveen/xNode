@@ -386,6 +386,21 @@ namespace XNode {
             }
         }
 
+        /// <summary> Color for a port type or a specific in/out field. Field wins over type. Type wins over Preference slots. </summary>
+        [AttributeUsage(AttributeTargets.Class | AttributeTargets.Struct | AttributeTargets.Enum | AttributeTargets.Field, Inherited = true, AllowMultiple = false)]
+        public class GraphPortColorAttribute : Attribute {
+            public Color color;
+            public GraphPortColorAttribute(float r, float g, float b) {
+                color = new Color(r, g, b);
+            }
+            public GraphPortColorAttribute(string hex) {
+                ColorUtility.TryParseHtmlString(hex, out color);
+            }
+            public GraphPortColorAttribute(byte r, byte g, byte b) {
+                color = new Color32(r, g, b, byte.MaxValue);
+            }
+        }
+
         /// <summary> Specify a color for this node type </summary>
         [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
         public class NodeTintAttribute : Attribute {

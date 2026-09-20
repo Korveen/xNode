@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
+using UnityEditor.UIElements;
 using UnityEngine;
+using UnityEngine.UIElements;
 #if ODIN_INSPECTOR
 using Sirenix.OdinInspector.Editor;
 using Sirenix.Utilities;
@@ -30,8 +32,17 @@ namespace XNodeEditor {
         protected internal static bool inNodeEditor = false;
 #endif
 
+        /// <summary> IMGUI leftover. The graph window uses <see cref="BuildHeader"/>. Keep for Sandbox/addon overrides. </summary>
         public virtual void OnHeaderGUI() {
             GUILayout.Label(target.name, NodeEditorResources.styles.nodeHeader, GUILayout.Height(30));
+        }
+
+        public virtual void BuildHeader(Ui.NodeView view) {
+            if (view == null) return;
+            view.SetTitle(target != null ? target.name : "");
+            view.SetTint(GetTint());
+            string tip = GetHeaderTooltip();
+            if (!string.IsNullOrEmpty(tip)) view.tooltip = tip;
         }
 
         /// <summary> Draws standard field editors for all public fields </summary>
@@ -107,11 +118,15 @@ namespace XNodeEditor {
 #endif
         }
 
+        public virtual void BuildBody(Ui.NodeView view) {
+            Ui.NodeUiUtility.BindNodeFields(view, serializedObject);
+        }
+
         public virtual int GetWidth() {
             Type type = target.GetType();
             int width;
             if (type.TryGetAttributeWidth(out width)) return width;
-            else return 208;
+            else return 280;
         }
 
         /// <summary> Returns color for target node </summary>

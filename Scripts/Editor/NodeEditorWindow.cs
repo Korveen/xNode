@@ -3,6 +3,7 @@ using System.Linq;
 using UnityEditor;
 using UnityEditor.Callbacks;
 using UnityEngine;
+using UnityEngine.UIElements;
 using System;
 using Object = UnityEngine.Object;
 
@@ -53,6 +54,27 @@ namespace XNodeEditor {
                 }
                 return _node.GetPort(_name);
             }
+        }
+
+        internal XNodeEditor.Ui.GraphUiController GraphUi { get; private set; }
+
+        private void CreateGUI() {
+            VisualTreeAsset uxml = XNodeEditor.Ui.UiAssets.LoadUxml("GraphWindow");
+            if (uxml == null) return;
+            rootVisualElement.Clear();
+            var shell = new XNodeEditor.Ui.GraphWindow(this);
+            shell.style.flexGrow = 1;
+            rootVisualElement.Add(shell);
+            GraphUi = shell.Controller;
+        }
+
+        internal void RebuildUi() {
+            GraphUi?.Rebuild();
+        }
+
+        private void OnDestroy() {
+            GraphUi?.Dispose();
+            GraphUi = null;
         }
 
         private void OnDisable() {
@@ -124,8 +146,8 @@ namespace XNodeEditor {
         }
 
         internal float BlackboardWidth {
-            get => blackboardWidth;
-            set => blackboardWidth = Mathf.Clamp(value, 220f, 520f);
+            get => Mathf.Clamp(blackboardWidth, 300f, 520f);
+            set => blackboardWidth = Mathf.Clamp(value, 300f, 520f);
         }
 
         public const float OverlayToolbarHeight = 21f;
@@ -300,8 +322,6 @@ namespace XNodeEditor {
                 graphEditor.OnWindowFocus();
                 if (NodeEditorPreferences.GetSettings().autoSave) AssetDatabase.SaveAssets();
             }
-            
-            dragThreshold = Math.Max(1f, Screen.width / 1000f);
         }
         
         void OnLostFocus() {
@@ -323,7 +343,7 @@ namespace XNodeEditor {
         }
 
         /// <summary> Make sure the graph editor is assigned and to the right object </summary>
-        private void ValidateGraphEditor() {
+        internal void ValidateGraphEditor() {
             NodeGraphEditor graphEditor = NodeGraphEditor.GetEditor(graph, this);
             if (this.graphEditor != graphEditor && graphEditor != null) {
                 this.graphEditor = graphEditor;
@@ -438,6 +458,7 @@ namespace XNodeEditor {
             NodeEditorWindow w = GetWindow(typeof(NodeEditorWindow), false, "xNode", true) as NodeEditorWindow;
             w.wantsMouseMove = true;
             w.graph = graph;
+            w.RebuildUi();
             return w;
         }
 
