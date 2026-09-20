@@ -146,8 +146,8 @@ namespace XNodeEditor {
         }
 
         internal float BlackboardWidth {
-            get => blackboardWidth;
-            set => blackboardWidth = Mathf.Clamp(value, 220f, 520f);
+            get => Mathf.Clamp(blackboardWidth, 300f, 520f);
+            set => blackboardWidth = Mathf.Clamp(value, 300f, 520f);
         }
 
         public const float OverlayToolbarHeight = 21f;
@@ -322,8 +322,6 @@ namespace XNodeEditor {
                 graphEditor.OnWindowFocus();
                 if (NodeEditorPreferences.GetSettings().autoSave) AssetDatabase.SaveAssets();
             }
-            
-            dragThreshold = Math.Max(1f, Screen.width / 1000f);
         }
         
         void OnLostFocus() {

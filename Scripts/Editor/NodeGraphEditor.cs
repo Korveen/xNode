@@ -16,9 +16,10 @@ namespace XNodeEditor {
         /// <summary> Are we currently renaming a node? </summary>
         protected bool isRenaming;
 
+        /// <summary> IMGUI leftover. The graph window uses <see cref="BuildOverlay"/>. Keep for Sandbox/addon overrides. </summary>
         public virtual void OnGUI() { }
 
-        /// <summary> Extra toolbar controls for a specific graph type. Drawn inside the window toolbar. </summary>
+        /// <summary> IMGUI leftover. The graph window uses <see cref="BuildToolbar"/>. Keep for Sandbox/addon overrides. </summary>
         public virtual void OnToolbarGUI() { }
 
         public virtual void BuildToolbar(VisualElement slot) { }

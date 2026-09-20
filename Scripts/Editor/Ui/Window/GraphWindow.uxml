@@ -10,6 +10,7 @@
                 </ui:VisualElement>
                 <ui:VisualElement name="selection-box" class="selection-box" picking-mode="Ignore" />
             </ui:VisualElement>
+            <ui:VisualElement name="blackboard-resize" class="bb-resize" />
             <ui:VisualElement name="blackboard" class="graph-blackboard" />
         </ui:VisualElement>
         <ui:VisualElement name="overlay" class="graph-overlay" picking-mode="Ignore" />

@@ -21,6 +21,7 @@ namespace XNodeEditor.Ui {
         readonly VisualElement _content;
         readonly VisualElement _nodesLayer;
         readonly VisualElement _blackboard;
+        readonly VisualElement _blackboardResize;
         readonly VisualElement _overlay;
         readonly VisualElement _selectionBox;
         readonly GridElement _grid;
@@ -49,6 +50,7 @@ namespace XNodeEditor.Ui {
         bool _draggingNodes;
         bool _dragCollapseOnClick;
         Node _dragClickedNode;
+        bool _resizingBlackboard;
         readonly Dictionary<Node, Vector2> _dragOrigins = new Dictionary<Node, Vector2>();
         Vector2 _dragPointerStart;
 
@@ -60,6 +62,7 @@ namespace XNodeEditor.Ui {
             _content = root.Q("content");
             _nodesLayer = root.Q("nodes");
             _blackboard = root.Q("blackboard");
+            _blackboardResize = root.Q("blackboard-resize");
             _overlay = root.Q("overlay");
             _selectionBox = root.Q("selection-box");
 
@@ -103,7 +106,7 @@ namespace XNodeEditor.Ui {
             BuildToolbar();
             _root.focusable = true;
             RegisterViewport();
-            _viewport.AddManipulator(new ContextualMenuManipulator(OnViewportContext));
+            RegisterBlackboardResize();
             _content.AddManipulator(new ContextualMenuManipulator(OnViewportContext));
             _nodesLayer.AddManipulator(new ContextualMenuManipulator(OnViewportContext));
             Undo.undoRedoPerformed += Rebuild;
@@ -198,7 +201,7 @@ namespace XNodeEditor.Ui {
             _blackboardButton.EnableInClassList("active", Window.ShowBlackboard);
             _toolbar.Add(_blackboardButton);
             _blackboard.EnableInClassList("hidden", !Window.ShowBlackboard);
-
+            ApplyBlackboardVisibility();
             _cursorLabel = new Label();
             _cursorLabel.AddToClassList("graph-cursor");
             _cursorLabel.pickingMode = PickingMode.Ignore;
@@ -238,7 +241,13 @@ namespace XNodeEditor.Ui {
         void ToggleBlackboard() {
             Window.ShowBlackboard = !Window.ShowBlackboard;
             _blackboardButton?.EnableInClassList("active", Window.ShowBlackboard);
-            _blackboard.EnableInClassList("hidden", !Window.ShowBlackboard);
+            ApplyBlackboardVisibility();
+        }
+
+        void ApplyBlackboardVisibility() {
+            bool hidden = !Window.ShowBlackboard;
+            _blackboard.EnableInClassList("hidden", hidden);
+            _blackboardResize?.EnableInClassList("hidden", hidden);
         }
 
         void RebuildToolbarExtras() {
@@ -266,10 +275,36 @@ namespace XNodeEditor.Ui {
         void RebuildBlackboard() {
             _blackboard.Clear();
             if (Window.graph == null) return;
-            var list = new IMGUIContainer(() => BlackboardEditorPanel.DrawEmbedded(Window));
-            list.style.flexGrow = 1;
-            list.style.minHeight = 80;
-            _blackboard.Add(list);
+            ApplyBlackboardWidth();
+            _blackboard.Add(BlackboardEditorPanel.Build(Window));
+        }
+
+        void ApplyBlackboardWidth() {
+            if (_blackboard == null) return;
+            _blackboard.style.width = Window.BlackboardWidth;
+        }
+
+        void RegisterBlackboardResize() {
+            if (_blackboardResize == null) return;
+            _blackboardResize.RegisterCallback<PointerDownEvent>(evt => {
+                if (evt.button != 0) return;
+                _resizingBlackboard = true;
+                _blackboardResize.CapturePointer(evt.pointerId);
+                evt.StopPropagation();
+            });
+            _blackboardResize.RegisterCallback<PointerMoveEvent>(evt => {
+                if (!_resizingBlackboard || !_blackboardResize.HasPointerCapture(evt.pointerId)) return;
+                float localX = _root.WorldToLocal(evt.position).x;
+                Window.BlackboardWidth = _root.layout.width - localX;
+                ApplyBlackboardWidth();
+                evt.StopPropagation();
+            });
+            _blackboardResize.RegisterCallback<PointerUpEvent>(evt => {
+                if (!_blackboardResize.HasPointerCapture(evt.pointerId)) return;
+                _blackboardResize.ReleasePointer(evt.pointerId);
+                _resizingBlackboard = false;
+                evt.StopPropagation();
+            });
         }
 
         void RebuildOverlay() {
@@ -574,41 +609,64 @@ namespace XNodeEditor.Ui {
                 _panning = false;
                 _boxing = false;
             });
-            _root.RegisterCallback<KeyDownEvent>(evt => {
-                if (evt.keyCode == KeyCode.F) {
-                    FrameSelection();
-                }
-                if (evt.keyCode == KeyCode.F2) {
-                    Window.RenameSelectedNode();
-                }
-                if (evt.keyCode == KeyCode.Delete || evt.keyCode == KeyCode.Backspace) {
-                    Window.RemoveSelectedNodes();
-                    Rebuild();
-                }
-                if ((evt.ctrlKey || evt.commandKey) && evt.keyCode == KeyCode.C) {
-                    Window.CopySelectedNodes();
-                }
-                if ((evt.ctrlKey || evt.commandKey) && evt.keyCode == KeyCode.V) {
-                    Window.PasteNodes(ScreenToGrid(_viewport.worldBound.center));
-                    Rebuild();
-                }
-                if ((evt.ctrlKey || evt.commandKey) && evt.keyCode == KeyCode.D) {
-                    Window.DuplicateSelectedNodes();
-                    Rebuild();
-                }
-                if (evt.keyCode == KeyCode.A) {
-                    if (Selection.objects.Any(x => Window.graph.nodes.Contains(x as Node))) {
-                        Selection.objects = Array.Empty<Object>();
-                    } else {
-                        Selection.objects = Window.graph.nodes.Where(n => n != null).ToArray();
-                    }
-                    RefreshSelection();
-                }
-            }, TrickleDown.TrickleDown);
+            _root.RegisterCallback<KeyDownEvent>(OnGraphKeyDown, TrickleDown.TrickleDown);
             _viewport.RegisterCallback<PointerMoveEvent>(
                 evt => UpdateCursorLabel(evt.position),
                 TrickleDown.TrickleDown);
             _viewport.RegisterCallback<GeometryChangedEvent>(_ => CullNodes());
+        }
+
+        void OnGraphKeyDown(KeyDownEvent evt) {
+            if (IsEditingText(evt.target) ||
+                IsEditingText(_root.focusController?.focusedElement)) {
+                return;
+            }
+
+            if (evt.keyCode == KeyCode.F) {
+                FrameSelection();
+                evt.StopPropagation();
+            }
+            if (evt.keyCode == KeyCode.F2 ||
+                (NodeEditorUtilities.IsMac() && evt.keyCode == KeyCode.Return)) {
+                Window.RenameSelectedNode();
+                evt.StopPropagation();
+            }
+            if (evt.keyCode == KeyCode.Delete || evt.keyCode == KeyCode.Backspace) {
+                Window.RemoveSelectedNodes();
+                Rebuild();
+                evt.StopPropagation();
+            }
+            if ((evt.ctrlKey || evt.commandKey) && evt.keyCode == KeyCode.C) {
+                Window.CopySelectedNodes();
+                evt.StopPropagation();
+            }
+            if ((evt.ctrlKey || evt.commandKey) && evt.keyCode == KeyCode.V) {
+                Window.PasteNodes(ScreenToGrid(_viewport.worldBound.center));
+                Rebuild();
+                evt.StopPropagation();
+            }
+            if ((evt.ctrlKey || evt.commandKey) && evt.keyCode == KeyCode.D) {
+                Window.DuplicateSelectedNodes();
+                Rebuild();
+                evt.StopPropagation();
+            }
+            if ((evt.ctrlKey || evt.commandKey) && evt.keyCode == KeyCode.A)  {
+                if (Selection.objects.Any(x => Window.graph.nodes.Contains(x as Node))) {
+                    Selection.objects = Array.Empty<Object>();
+                } else {
+                    Selection.objects = Window.graph.nodes.Where(n => n != null).ToArray();
+                }
+                RefreshSelection();
+                evt.StopPropagation();
+            }
+        }
+
+        static bool IsEditingText(IEventHandler target) {
+            for (var ve = target as VisualElement; ve != null; ve = ve.parent) {
+                if (ve.ClassListContains("unity-base-text-field")) return true;
+                if (ve.ClassListContains("unity-base-text-field__input")) return true;
+            }
+            return false;
         }
 
         void SelectNodesInBox(Rect viewportBox) {

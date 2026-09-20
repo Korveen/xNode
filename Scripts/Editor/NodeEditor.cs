@@ -32,6 +32,7 @@ namespace XNodeEditor {
         protected internal static bool inNodeEditor = false;
 #endif
 
+        /// <summary> IMGUI leftover. The graph window uses <see cref="BuildHeader"/>. Keep for Sandbox/addon overrides. </summary>
         public virtual void OnHeaderGUI() {
             GUILayout.Label(target.name, NodeEditorResources.styles.nodeHeader, GUILayout.Height(30));
         }

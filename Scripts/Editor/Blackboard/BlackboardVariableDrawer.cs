@@ -23,7 +23,7 @@ namespace XNodeEditor {
 
             var variable = property.managedReferenceValue as XNode.BlackboardVariable;
             if (variable != null) {
-                var typeLabel = new Label(NodeEditorUtilities.PrettyName(variable.ValueType));
+                var typeLabel = new Label(BlackboardEditorPanel.TypeLabel(variable.ValueType));
                 typeLabel.AddToClassList("toolbar-label");
                 typeLabel.style.minWidth = 48;
                 header.Add(typeLabel);
