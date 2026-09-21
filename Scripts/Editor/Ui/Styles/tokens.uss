@@ -58,7 +58,9 @@
 
 .graph-grid,
 .graph-noodles,
+.graph-groups,
 .graph-nodes,
+.graph-group-edges,
 .graph-reroutes {
     position: absolute;
     left: 0;
@@ -263,6 +265,54 @@
     unity-font-style: bold;
     unity-text-align: middle-center;
     color: #ffffff;
+}
+
+.node-header__rename {
+    flex-grow: 1;
+    min-width: 40px;
+    margin: 0 4px;
+}
+
+.node-view.group-view {
+    min-width: 200px;
+    overflow: visible;
+    background-color: transparent;
+}
+
+.node-view.group-view .node-header {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.node-view.group-view .node-body {
+    flex-grow: 1;
+    padding: 0;
+    overflow: hidden;
+}
+
+.group-edge {
+    position: absolute;
+    background-color: rgba(0, 0, 0, 0.01);
+}
+
+.group-edge-n,
+.group-edge-s {
+    cursor: resize-vertical;
+}
+
+.group-edge-e,
+.group-edge-w {
+    cursor: resize-horizontal;
+}
+
+.group-edge-ne,
+.group-edge-sw {
+    cursor: resize-up-right;
+}
+
+.group-edge-nw,
+.group-edge-se {
+    cursor: resize-up-left;
 }
 
 .node-header__index {

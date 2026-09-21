@@ -1,6 +1,6 @@
 # xNode (Korveen fork)
 
-Fork of [Siccity/xNode](https://github.com/Siccity/xNode) by Thor Brigsted. The runtime model is the same: `NodeGraph` / `Node`, `[Input]` / `[Output]`, `GetValue`. This fork adds a UITK graph window, a per-graph Blackboard, and a per-run execution context.
+Fork of [Siccity/xNode](https://github.com/Siccity/xNode) by Thor Brigsted. The runtime model is the same: `NodeGraph` / `Node`, `[Input]` / `[Output]`, `GetValue`. This fork adds a UITK graph window, a per-graph Blackboard, a per-run execution context, and graph groups (from [Siccity/xNodeGroups](https://github.com/Siccity/xNodeGroups), same author, MIT).
 
 Original xNode is MIT. Copyright (c) 2017 Thor Brigsted. Keep that notice.
 
@@ -26,6 +26,7 @@ Use it as a base for state machines, dialogue, behaviour trees, or any graph you
 * Port colors: named slots, then `[Node.GraphPortColor]` on a field or type
 * Blackboard panel: add / reorder / rename / Get node. Extra `BlackboardVariable<T>` types are picked up by reflection
 * Custom node UI: `BuildHeader` / `BuildBody` / `BuildToolbar` / `BuildOverlay`
+* Groups: `Group` is at the top of the create menu. A node belongs to a group only when its full rect is inside the group. Dragging a group moves those nodes without selecting them. Delete removes the group only. Resize from any edge while the group is selected. `Select Contents` in the context menu selects the nodes inside.
 
 `OnHeaderGUI` / `OnBodyGUI` / `OnToolbarGUI` still exist so older project editors compile. The window does not call them.
 
@@ -109,7 +110,7 @@ public sealed class GetActorBlackboardVariableNode : GetBlackboardVariableNode<A
 
 ## Not in this fork
 
-* [xNodeGroups](https://github.com/Siccity/xNodeGroups) — IMGUI. Does not draw on the UITK canvas. Do not expect groups to work.
+* Do not install `com.github.siccity.xnodegroups`. Groups are in this package.
 * Siccity wiki / Discord / Asset Store / OpenUPM — those are the original project, not this fork.
 * First-class Odin Inspector support. Leftover IMGUI Odin drawers may still compile; they are not the editor path.
 

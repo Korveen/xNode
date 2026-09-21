@@ -20,6 +20,8 @@ namespace XNodeEditor.Ui {
         readonly VisualElement _viewport;
         readonly VisualElement _content;
         readonly VisualElement _nodesLayer;
+        readonly VisualElement _groupsLayer;
+        readonly VisualElement _groupEdges;
         readonly VisualElement _blackboard;
         readonly VisualElement _blackboardResize;
         readonly VisualElement _overlay;
@@ -53,6 +55,19 @@ namespace XNodeEditor.Ui {
         bool _resizingBlackboard;
         readonly Dictionary<Node, Vector2> _dragOrigins = new Dictionary<Node, Vector2>();
         Vector2 _dragPointerStart;
+        GroupNode _resizeGroup;
+        GroupEdge _resizeEdge;
+        Vector2 _resizePointer;
+        Vector2 _resizeOrigin;
+        int _resizeWidth;
+        int _resizeHeight;
+
+        enum GroupEdge { N, S, E, W, NE, NW, SE, SW }
+
+        sealed class GroupEdgeTag {
+            public GroupNode Group;
+            public GroupEdge Edge;
+        }
 
         public GraphUiController(NodeEditorWindow window, VisualElement root) {
             Window = window;
@@ -61,6 +76,10 @@ namespace XNodeEditor.Ui {
             _viewport = root.Q("viewport");
             _content = root.Q("content");
             _nodesLayer = root.Q("nodes");
+            _groupsLayer = root.Q("groups");
+            _groupEdges = root.Q("group-edges");
+            if (_nodesLayer != null) _nodesLayer.pickingMode = PickingMode.Ignore;
+            if (_groupEdges != null) _groupEdges.pickingMode = PickingMode.Ignore;
             _blackboard = root.Q("blackboard");
             _blackboardResize = root.Q("blackboard-resize");
             _overlay = root.Q("overlay");
@@ -109,6 +128,7 @@ namespace XNodeEditor.Ui {
             RegisterBlackboardResize();
             _content.AddManipulator(new ContextualMenuManipulator(OnViewportContext));
             _nodesLayer.AddManipulator(new ContextualMenuManipulator(OnViewportContext));
+            _groupsLayer?.AddManipulator(new ContextualMenuManipulator(OnViewportContext));
             Undo.undoRedoPerformed += Rebuild;
             Selection.selectionChanged += RefreshSelection;
             NodeEditorPreferences.Changed += ApplyVisualPrefs;
@@ -314,13 +334,16 @@ namespace XNodeEditor.Ui {
 
         void RebuildNodes() {
             _nodesLayer.Clear();
+            _groupsLayer?.Clear();
             Nodes.Clear();
             Ports.Clear();
             if (Window.graph?.nodes == null) return;
             for (int i = 0; i < Window.graph.nodes.Count; i++) {
                 Node node = Window.graph.nodes[i];
                 if (node == null) continue;
-                var view = new NodeView(node);
+                NodeView view = node is GroupNode group
+                    ? new GroupView(group)
+                    : new NodeView(node);
                 NodeEditor editor = NodeEditor.GetEditor(node, Window);
                 view.style.width = editor.GetWidth();
                 editor.BuildHeader(view);
@@ -339,12 +362,14 @@ namespace XNodeEditor.Ui {
                         Mathf.Max(view.resolvedStyle.height, 40f));
                     _noodles.MarkDirtyRepaint();
                 });
-                _nodesLayer.Add(view);
+                if (node is GroupNode && _groupsLayer != null) _groupsLayer.Add(view);
+                else _nodesLayer.Add(view);
                 Nodes[node] = view;
                 Window.nodeSizes[node] = new Vector2(editor.GetWidth(), 80f);
             }
             RebuildRerouteHandles();
             CullNodes();
+            SyncGroupEdges();
         }
 
         void BindNode(NodeView view) {
@@ -391,6 +416,7 @@ namespace XNodeEditor.Ui {
                 if (ve.ClassListContains("unity-base-field")) return true;
                 if (ve.ClassListContains("unity-button")) return true;
                 if (ve.ClassListContains("unity-base-slider")) return true;
+                if (ve.ClassListContains("group-resize")) return true;
             }
             return false;
         }
@@ -519,10 +545,16 @@ namespace XNodeEditor.Ui {
         }
 
         NodeView FindNodeAt(Vector2 panelPosition) {
+            NodeView groupHit = null;
             foreach (var pair in Nodes) {
-                if (pair.Value.worldBound.Contains(panelPosition)) return pair.Value;
+                if (pair.Value == null || !pair.Value.worldBound.Contains(panelPosition)) continue;
+                if (pair.Key is GroupNode) {
+                    if (groupHit == null) groupHit = pair.Value;
+                    continue;
+                }
+                return pair.Value;
             }
-            return null;
+            return groupHit;
         }
 
         void RegisterViewport() {
@@ -680,14 +712,39 @@ namespace XNodeEditor.Ui {
             Selection.objects = selected.ToArray();
         }
 
+        Vector2 NodeSize(Node node) {
+            if (node != null &&
+                Window.nodeSizes.TryGetValue(node, out Vector2 size) &&
+                size.x > 1f &&
+                size.y > 1f) {
+                return size;
+            }
+            NodeEditor editor = NodeEditor.GetEditor(node, Window);
+            float width = editor != null ? editor.GetWidth() : 208f;
+            return new Vector2(width, 80f);
+        }
+
+        void RememberDragOrigin(Node node) {
+            if (node == null || node.graph != Window.graph) return;
+            if (_dragOrigins.ContainsKey(node)) return;
+            Undo.RecordObject(node, "Moved Node");
+            _dragOrigins[node] = node.position;
+        }
+
         void BeginNodeDrag(Vector2 pointer) {
             _draggingNodes = true;
             _dragPointerStart = pointer;
             _dragOrigins.Clear();
             foreach (Object obj in Selection.objects) {
-                if (obj is Node node && node != null && node.graph == Window.graph) {
-                    Undo.RecordObject(node, "Moved Node");
-                    _dragOrigins[node] = node.position;
+                if (obj is Node node && node != null && node.graph == Window.graph)
+                    RememberDragOrigin(node);
+            }
+            if (_dragClickedNode is GroupNode) {
+                foreach (Object obj in Selection.objects) {
+                    if (obj is not GroupNode group) continue;
+                    List<Node> inside = group.GetNodes(NodeSize);
+                    for (int i = 0; i < inside.Count; i++)
+                        RememberDragOrigin(inside[i]);
                 }
             }
         }
@@ -704,6 +761,7 @@ namespace XNodeEditor.Ui {
             }
             _noodles.MarkDirtyRepaint();
             UpdateCursorLabel(pointer);
+            SyncGroupEdges();
         }
 
         void EndNodeDrag() {
@@ -725,12 +783,176 @@ namespace XNodeEditor.Ui {
                 pair.Value.SetSelected(selected.Contains(pair.Key));
                 pair.Value.SetDimmed(Window.IsHighlightFilterActive && !Window.IsNodeHighlighted(pair.Key));
             }
+            SyncGroupEdges();
         }
 
         void CullNodes() {
             bool compact = !Window.ShouldDrawNodeFields;
             foreach (var pair in Nodes)
                 pair.Value.EnableInClassList("compact", compact);
+        }
+
+        const float GroupEdgeThickness = 8f;
+        const float GroupCornerSize = 14f;
+
+        void SyncGroupEdges() {
+            if (_groupEdges == null) return;
+            if (_resizeGroup != null) {
+                PlaceGroupEdges();
+                return;
+            }
+            _groupEdges.Clear();
+            foreach (Object obj in Selection.objects) {
+                if (obj is GroupNode group && group != null && group.graph == Window.graph)
+                    BuildGroupEdges(group);
+            }
+        }
+
+        void BuildGroupEdges(GroupNode group) {
+            AddGroupEdge(group, GroupEdge.N);
+            AddGroupEdge(group, GroupEdge.S);
+            AddGroupEdge(group, GroupEdge.E);
+            AddGroupEdge(group, GroupEdge.W);
+            AddGroupEdge(group, GroupEdge.NE);
+            AddGroupEdge(group, GroupEdge.NW);
+            AddGroupEdge(group, GroupEdge.SE);
+            AddGroupEdge(group, GroupEdge.SW);
+            PlaceGroupEdges();
+        }
+
+        void AddGroupEdge(GroupNode group, GroupEdge edge) {
+            var handle = new VisualElement();
+            handle.AddToClassList("group-edge");
+            handle.AddToClassList(EdgeClass(edge));
+            handle.pickingMode = PickingMode.Position;
+            handle.userData = new GroupEdgeTag { Group = group, Edge = edge };
+            handle.RegisterCallback<PointerDownEvent>(evt => BeginGroupResize(handle, evt));
+            handle.RegisterCallback<PointerMoveEvent>(evt => DragGroupResize(handle, evt));
+            handle.RegisterCallback<PointerUpEvent>(evt => EndGroupResize(handle, evt));
+            _groupEdges.Add(handle);
+        }
+
+        static string EdgeClass(GroupEdge edge) {
+            switch (edge) {
+                case GroupEdge.N: return "group-edge-n";
+                case GroupEdge.S: return "group-edge-s";
+                case GroupEdge.E: return "group-edge-e";
+                case GroupEdge.W: return "group-edge-w";
+                case GroupEdge.NE: return "group-edge-ne";
+                case GroupEdge.NW: return "group-edge-nw";
+                case GroupEdge.SE: return "group-edge-se";
+                default: return "group-edge-sw";
+            }
+        }
+
+        void PlaceGroupEdges() {
+            foreach (VisualElement handle in _groupEdges.Children()) {
+                if (handle.userData is not GroupEdgeTag tag || tag.Group == null) continue;
+                float x = tag.Group.position.x;
+                float y = tag.Group.position.y;
+                float w = tag.Group.width;
+                float h = GroupView.HeaderHeight + tag.Group.height;
+                float t = GroupEdgeThickness;
+                float c = GroupCornerSize;
+                switch (tag.Edge) {
+                    case GroupEdge.N:
+                        SetEdge(handle, x + c, y, Mathf.Max(0f, w - c * 2f), t);
+                        break;
+                    case GroupEdge.S:
+                        SetEdge(handle, x + c, y + h - t, Mathf.Max(0f, w - c * 2f), t);
+                        break;
+                    case GroupEdge.W:
+                        SetEdge(handle, x, y + c, t, Mathf.Max(0f, h - c * 2f));
+                        break;
+                    case GroupEdge.E:
+                        SetEdge(handle, x + w - t, y + c, t, Mathf.Max(0f, h - c * 2f));
+                        break;
+                    case GroupEdge.NW:
+                        SetEdge(handle, x, y, c, c);
+                        break;
+                    case GroupEdge.NE:
+                        SetEdge(handle, x + w - c, y, c, c);
+                        break;
+                    case GroupEdge.SW:
+                        SetEdge(handle, x, y + h - c, c, c);
+                        break;
+                    default:
+                        SetEdge(handle, x + w - c, y + h - c, c, c);
+                        break;
+                }
+            }
+        }
+
+        static void SetEdge(VisualElement handle, float x, float y, float w, float h) {
+            handle.style.left = x;
+            handle.style.top = y;
+            handle.style.width = w;
+            handle.style.height = h;
+        }
+
+        void BeginGroupResize(VisualElement handle, PointerDownEvent evt) {
+            if (evt.button != 0) return;
+            if (handle.userData is not GroupEdgeTag tag || tag.Group == null) return;
+            _resizeGroup = tag.Group;
+            _resizeEdge = tag.Edge;
+            _resizePointer = ScreenToGrid(evt.position);
+            _resizeOrigin = tag.Group.position;
+            _resizeWidth = tag.Group.width;
+            _resizeHeight = tag.Group.height;
+            Undo.RecordObject(tag.Group, "Resize Group");
+            handle.CapturePointer(evt.pointerId);
+            evt.StopPropagation();
+        }
+
+        void DragGroupResize(VisualElement handle, PointerMoveEvent evt) {
+            if (_resizeGroup == null || !handle.HasPointerCapture(evt.pointerId)) return;
+            Vector2 delta = ScreenToGrid(evt.position) - _resizePointer;
+            bool west = _resizeEdge == GroupEdge.W || _resizeEdge == GroupEdge.NW || _resizeEdge == GroupEdge.SW;
+            bool east = _resizeEdge == GroupEdge.E || _resizeEdge == GroupEdge.NE || _resizeEdge == GroupEdge.SE;
+            bool north = _resizeEdge == GroupEdge.N || _resizeEdge == GroupEdge.NW || _resizeEdge == GroupEdge.NE;
+            bool south = _resizeEdge == GroupEdge.S || _resizeEdge == GroupEdge.SW || _resizeEdge == GroupEdge.SE;
+            float right = _resizeOrigin.x + _resizeWidth;
+            float bottom = _resizeOrigin.y + _resizeHeight;
+            float x = _resizeOrigin.x;
+            float y = _resizeOrigin.y;
+            float w = _resizeWidth;
+            float h = _resizeHeight;
+            if (east) w = _resizeWidth + delta.x;
+            if (west) {
+                x = _resizeOrigin.x + delta.x;
+                w = right - x;
+            }
+            if (south) h = _resizeHeight + delta.y;
+            if (north) {
+                y = _resizeOrigin.y + delta.y;
+                h = bottom - y;
+            }
+            if (w < GroupView.MinWidth) {
+                w = GroupView.MinWidth;
+                if (west) x = right - w;
+            }
+            if (h < GroupView.MinHeight) {
+                h = GroupView.MinHeight;
+                if (north) y = bottom - h;
+            }
+            _resizeGroup.position = new Vector2(Mathf.Round(x), Mathf.Round(y));
+            _resizeGroup.width = Mathf.RoundToInt(w);
+            _resizeGroup.height = Mathf.RoundToInt(h);
+            if (Nodes.TryGetValue(_resizeGroup, out NodeView view)) {
+                view.SyncPosition();
+                if (view is GroupView groupView) groupView.ApplyGroupSize();
+                Window.nodeSizes[_resizeGroup] = new Vector2(_resizeGroup.width, GroupView.HeaderHeight + _resizeGroup.height);
+            }
+            PlaceGroupEdges();
+            evt.StopPropagation();
+        }
+
+        void EndGroupResize(VisualElement handle, PointerUpEvent evt) {
+            if (handle.HasPointerCapture(evt.pointerId))
+                handle.ReleasePointer(evt.pointerId);
+            if (_resizeGroup != null) EditorUtility.SetDirty(_resizeGroup);
+            _resizeGroup = null;
+            evt.StopPropagation();
         }
 
         void OnViewportContext(ContextualMenuPopulateEvent evt) {
@@ -759,8 +981,17 @@ namespace XNodeEditor.Ui {
         void FillCreateMenu(DropdownMenu menu, Vector2 panelPos) {
             if (Window.graphEditor == null) return;
             Vector2 grid = ScreenToGrid(panelPos);
-            bool any = false;
-            foreach (var entry in GetCreateEntries(null)) {
+            SplitCreateEntries(GetCreateEntries(null), out var groups, out var rest);
+            foreach (var entry in groups) {
+                Type captured = entry.type;
+                menu.AppendAction(entry.path, _ => {
+                    Window.graphEditor.CreateNode(captured, grid);
+                    Rebuild();
+                });
+            }
+            if (groups.Count > 0 && rest.Count > 0) menu.AppendSeparator();
+            bool any = groups.Count > 0;
+            foreach (var entry in rest) {
                 Type captured = entry.type;
                 menu.AppendAction(entry.path, _ => {
                     Window.graphEditor.CreateNode(captured, grid);
@@ -795,12 +1026,28 @@ namespace XNodeEditor.Ui {
             return result;
         }
 
+        static void SplitCreateEntries(
+            List<(string path, Type type)> entries,
+            out List<(string path, Type type)> groups,
+            out List<(string path, Type type)> rest) {
+            groups = new List<(string path, Type type)>();
+            rest = new List<(string path, Type type)>();
+            for (int i = 0; i < entries.Count; i++) {
+                if (typeof(GroupNode).IsAssignableFrom(entries[i].type)) groups.Add(entries[i]);
+                else rest.Add(entries[i]);
+            }
+        }
+
         void ShowCreateMenu(Vector2 panelPos, NodePort output) {
             var menu = new GenericMenu();
             Vector2 grid = ScreenToGrid(panelPos);
             NodePort capturedOutput = output;
+            SplitCreateEntries(
+                GetCreateEntries(output != null ? output.ValueType : null),
+                out var groups,
+                out var rest);
             bool any = false;
-            foreach (var entry in GetCreateEntries(output != null ? output.ValueType : null)) {
+            void AddEntry((string path, Type type) entry) {
                 Type capturedType = entry.type;
                 menu.AddItem(new GUIContent(entry.path), false, () => {
                     Node node = Window.graphEditor.CreateNode(capturedType, grid);
@@ -812,6 +1059,9 @@ namespace XNodeEditor.Ui {
                 });
                 any = true;
             }
+            for (int i = 0; i < groups.Count; i++) AddEntry(groups[i]);
+            if (groups.Count > 0 && rest.Count > 0) menu.AddSeparator("");
+            for (int i = 0; i < rest.Count; i++) AddEntry(rest[i]);
             if (!any) return;
             menu.AddSeparator("");
             bool canPaste = NodeEditorWindow.copyBuffer != null && NodeEditorWindow.copyBuffer.Length > 0;
@@ -835,6 +1085,16 @@ namespace XNodeEditor.Ui {
                 Window.DuplicateSelectedNodes();
                 Rebuild();
             });
+            if (view.Node is GroupNode group) {
+                GroupNode captured = group;
+                menu.AppendAction("Select Contents", _ => {
+                    var list = new List<Object> { captured };
+                    List<Node> inside = captured.GetNodes(NodeSize);
+                    for (int i = 0; i < inside.Count; i++)
+                        if (inside[i] != null) list.Add(inside[i]);
+                    Selection.objects = list.ToArray();
+                });
+            }
             menu.AppendAction("Remove", _ => {
                 Window.RemoveSelectedNodes();
                 Rebuild();
