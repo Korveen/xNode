@@ -3,9 +3,6 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
-#if UNITY_2019_1_OR_NEWER && USE_ADVANCED_GENERIC_MENU
-using GenericMenu = XNodeEditor.AdvancedGenericMenu;
-#endif
 
 namespace XNodeEditor {
     /// <summary> Base class to derive custom Node Graph editors from. Use this to override how graphs are drawn in the editor. </summary>
@@ -15,12 +12,6 @@ namespace XNodeEditor {
         public Rect position { get { return window.position; } set { window.position = value; } }
         /// <summary> Are we currently renaming a node? </summary>
         protected bool isRenaming;
-
-        /// <summary> IMGUI leftover. The graph window uses <see cref="BuildOverlay"/>. Keep for Sandbox/addon overrides. </summary>
-        public virtual void OnGUI() { }
-
-        /// <summary> IMGUI leftover. The graph window uses <see cref="BuildToolbar"/>. Keep for Sandbox/addon overrides. </summary>
-        public virtual void OnToolbarGUI() { }
 
         public virtual void BuildToolbar(VisualElement slot) { }
 
@@ -104,53 +95,6 @@ namespace XNodeEditor {
                 if (CanConnect(output, input) && !output.IsConnectedTo(input)) return output;
             }
             return null;
-        }
-
-        /// <summary>
-        /// Add items for the context menu when right-clicking this node.
-        /// Override to add custom menu items.
-        /// </summary>
-        /// <param name="menu"></param>
-        /// <param name="compatibleType">Use it to filter only nodes with ports value type, compatible with this type</param>
-        /// <param name="direction">Direction of the compatiblity</param>
-        public virtual void AddContextMenuItems(GenericMenu menu, Type compatibleType = null, XNode.NodePort.IO direction = XNode.NodePort.IO.Input) {
-            Vector2 pos = NodeEditorWindow.current.WindowToGridPosition(Event.current.mousePosition);
-
-            Type[] nodeTypes;
-
-            if (compatibleType != null && NodeEditorPreferences.GetSettings().createFilter) {
-                nodeTypes = NodeEditorUtilities.GetCompatibleNodesTypes(NodeEditorReflection.nodeTypes, compatibleType, direction).OrderBy(GetNodeMenuOrder).ToArray();
-            } else {
-                nodeTypes = NodeEditorReflection.nodeTypes.OrderBy(GetNodeMenuOrder).ToArray();
-            }
-
-            for (int i = 0; i < nodeTypes.Length; i++) {
-                Type type = nodeTypes[i];
-
-                //Get node context menu path
-                string path = GetNodeMenuName(type);
-                if (string.IsNullOrEmpty(path)) continue;
-
-                // Check if user is allowed to add more of given node type
-                XNode.Node.DisallowMultipleNodesAttribute disallowAttrib;
-                bool disallowed = false;
-                if (NodeEditorUtilities.GetAttrib(type, out disallowAttrib)) {
-                    int typeCount = target.nodes.Count(x => x.GetType() == type);
-                    if (typeCount >= disallowAttrib.max) disallowed = true;
-                }
-
-                // Add node entry to context menu
-                if (disallowed) menu.AddItem(new GUIContent(path), false, null);
-                else menu.AddItem(new GUIContent(path), false, () => {
-                    XNode.Node node = CreateNode(type, pos);
-                    if (node != null) NodeEditorWindow.current.AutoConnect(node); // handle null nodes to avoid nullref exceptions
-                });
-            }
-            menu.AddSeparator("");
-            if (NodeEditorWindow.copyBuffer != null && NodeEditorWindow.copyBuffer.Length > 0) menu.AddItem(new GUIContent("Paste"), false, () => NodeEditorWindow.current.PasteNodes(pos));
-            else menu.AddDisabledItem(new GUIContent("Paste"));
-            menu.AddItem(new GUIContent("Preferences"), false, () => NodeEditorReflection.OpenPreferences());
-            menu.AddCustomContextMenuItems(target);
         }
 
         /// <summary> Returned gradient is used to color noodles </summary>

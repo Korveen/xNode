@@ -96,15 +96,21 @@ namespace XNodeEditor {
         }
 
         public void RenameSelectedNode() {
-            if (Selection.objects.Length == 1 && Selection.activeObject is XNode.Node) {
-                XNode.Node node = Selection.activeObject as XNode.Node;
-                Vector2 size;
-                if (nodeSizes.TryGetValue(node, out size)) {
-                    RenamePopup.Show(Selection.activeObject, size.x);
-                } else {
-                    RenamePopup.Show(Selection.activeObject);
+            if (Selection.objects.Length != 1 || Selection.activeObject is not XNode.Node node)
+                return;
+            if (GraphUi == null || !GraphUi.Nodes.TryGetValue(node, out Ui.NodeView view))
+                return;
+            view.BeginRename(next => {
+                NodeEditor editor = NodeEditor.GetEditor(node, this);
+                editor.Rename(next);
+                string path = AssetDatabase.GetAssetPath(node);
+                if (!string.IsNullOrEmpty(path)) {
+                    AssetDatabase.SetMainObject(node.graph, path);
+                    AssetDatabase.ImportAsset(path);
                 }
-            }
+                node.TriggerOnValidate();
+                view.SetTitle(node.name);
+            });
         }
 
         public void MoveNodeToTop(XNode.Node node) {

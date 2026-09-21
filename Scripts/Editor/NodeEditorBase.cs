@@ -1,12 +1,8 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using UnityEditor;
 using UnityEngine;
-#if ODIN_INSPECTOR
-using Sirenix.OdinInspector.Editor;
-#endif
 
 namespace XNodeEditor.Internal {
 	/// <summary> Handles caching of custom editor classes and their target types. Accessible with GetEditor(Type type) </summary>
@@ -20,24 +16,6 @@ namespace XNodeEditor.Internal {
 		public NodeEditorWindow window;
 		public K target;
 		public SerializedObject serializedObject;
-#if ODIN_INSPECTOR
-		private PropertyTree _objectTree;
-		public PropertyTree objectTree {
-			get {
-                if (this._objectTree == null){
-					try {
-						bool wasInEditor = NodeEditor.inNodeEditor;
-						NodeEditor.inNodeEditor = true;
-						this._objectTree = PropertyTree.Create(this.serializedObject);
-						NodeEditor.inNodeEditor = wasInEditor;
-					} catch (ArgumentException ex) {
-						Debug.Log(ex);
-					}
-				}
-				return this._objectTree;
-			}
-		}
-#endif
 
 		public static T GetEditor(K target, NodeEditorWindow window) {
 			if (target == null) return null;
@@ -73,14 +51,12 @@ namespace XNodeEditor.Internal {
 			if (editorTypes == null) CacheCustomEditors();
 			Type result;
 			if (editorTypes.TryGetValue(type, out result)) return result;
-			//If type isn't found, try base type
 			return GetEditorType(type.BaseType);
 		}
 
 		private static void CacheCustomEditors() {
 			editorTypes = new Dictionary<Type, Type>();
 
-			//Get all classes deriving from NodeEditor via reflection
 			Type[] nodeEditors = typeof(T).GetDerivedTypes();
 			for (int i = 0; i < nodeEditors.Length; i++) {
 				if (nodeEditors[i].IsAbstract) continue;

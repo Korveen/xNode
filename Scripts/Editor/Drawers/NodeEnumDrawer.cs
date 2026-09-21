@@ -42,12 +42,8 @@ namespace XNodeEditor {
 			if (property.enumValueIndex >= 0 && property.enumValueIndex < property.enumDisplayNames.Length)
 				enumName = property.enumDisplayNames[property.enumValueIndex];
 
-			if (EditorGUI.DropdownButton(position, new GUIContent(enumName), FocusType.Passive)) {
-				if (NodeEditorWindow.current != null)
-					NodeEditorWindow.current.onLateGUI += () => ShowContextMenuAtMouse(property);
-				else
-					ShowContextMenuAtMouse(property);
-			}
+			if (EditorGUI.DropdownButton(position, new GUIContent(enumName), FocusType.Passive))
+				ShowContextMenuAtMouse(property);
 		}
 
 		public static void ShowContextMenuAtMouse(SerializedProperty property) {
