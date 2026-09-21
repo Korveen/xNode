@@ -55,6 +55,34 @@ namespace XNodeEditor.Ui {
             _header.style.backgroundColor = color;
         }
 
+        public void BeginRename(System.Action<string> apply) {
+            if (_title.parent == null) return;
+            int index = _header.IndexOf(_title);
+            var field = new TextField { value = Node != null ? Node.name : _title.text };
+            field.AddToClassList("node-header__rename");
+            field.AddToClassList("unity-base-text-field");
+            _header.Insert(index, field);
+            _title.style.display = DisplayStyle.None;
+            field.schedule.Execute(() => field.Focus()).ExecuteLater(1);
+            void Finish(bool commit) {
+                if (field.parent == null) return;
+                string next = field.value;
+                field.RemoveFromHierarchy();
+                _title.style.display = DisplayStyle.Flex;
+                if (commit && apply != null) apply(next);
+            }
+            field.RegisterCallback<KeyDownEvent>(evt => {
+                if (evt.keyCode == KeyCode.Return || evt.keyCode == KeyCode.KeypadEnter) {
+                    Finish(true);
+                    evt.StopPropagation();
+                } else if (evt.keyCode == KeyCode.Escape) {
+                    Finish(false);
+                    evt.StopPropagation();
+                }
+            }, TrickleDown.TrickleDown);
+            field.RegisterCallback<FocusOutEvent>(_ => Finish(true));
+        }
+
         public void SetSelected(bool selected) {
             EnableInClassList("selected", selected);
             ApplySelectionColor(NodeEditorPreferences.GetShared().selectionColor);

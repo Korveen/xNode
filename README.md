@@ -25,10 +25,8 @@ Use it as a base for state machines, dialogue, behaviour trees, or any graph you
 * Preferences split: shared (grid, zoom) vs per graph type (noodles, port color slots)
 * Port colors: named slots, then `[Node.GraphPortColor]` on a field or type
 * Blackboard panel: add / reorder / rename / Get node. Extra `BlackboardVariable<T>` types are picked up by reflection
-* Custom node UI: `BuildHeader` / `BuildBody` / `BuildToolbar` / `BuildOverlay`
+* Custom node UI: `BuildHeader` / `BuildBody` / `BuildToolbar` / `BuildOverlay`. There is no IMGUI node-drawing path. Preferences and the create/context menus stay IMGUI.
 * Groups: `Group` is at the top of the create menu. A node belongs to a group only when its full rect is inside the group. Dragging a group moves those nodes without selecting them. Delete removes the group only. Resize from any edge while the group is selected. `Select Contents` in the context menu selects the nodes inside.
-
-`OnHeaderGUI` / `OnBodyGUI` / `OnToolbarGUI` still exist so older project editors compile. The window does not call them.
 
 ## Requirements
 
@@ -112,7 +110,7 @@ public sealed class GetActorBlackboardVariableNode : GetBlackboardVariableNode<A
 
 * Do not install `com.github.siccity.xnodegroups`. Groups are in this package.
 * Siccity wiki / Discord / Asset Store / OpenUPM — those are the original project, not this fork.
-* First-class Odin Inspector support. Leftover IMGUI Odin drawers may still compile; they are not the editor path.
+* First-class Odin Inspector support. Node IMGUI drawers are not part of this package.
 
 ## License
 
