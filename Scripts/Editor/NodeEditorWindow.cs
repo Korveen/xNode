@@ -72,6 +72,10 @@ namespace XNodeEditor {
             GraphUi?.Rebuild();
         }
 
+        internal void RefreshNodes() {
+            GraphUi?.RefreshNodes();
+        }
+
         private void OnDestroy() {
             GraphUi?.Dispose();
             GraphUi = null;
