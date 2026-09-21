@@ -24,7 +24,7 @@ Use it as a base for state machines, dialogue, behaviour trees, or any graph you
 * UITK window: pan, zoom, grid snap, noodles, reroutes, search
 * Preferences split: shared (grid, zoom) vs per graph type (noodles, port color slots)
 * Port colors: named slots, then `[Node.GraphPortColor]` on a field or type
-* Blackboard panel: add / reorder / rename / Get node. Extra `BlackboardVariable<T>` types are picked up by reflection
+* Blackboard panel: add / reorder / rename / Get node. Extra `BlackboardVariable<T>` types are picked up by reflection. Adding, removing, or reordering a variable refreshes node dropdowns. A rename does the same shortly after the last keystroke.
 * Custom node UI: `BuildHeader` / `BuildBody` / `BuildToolbar` / `BuildOverlay`. There is no IMGUI node-drawing path. Preferences and the create/context menus stay IMGUI.
 * Groups: `Group` is at the top of the create menu. A node belongs to a group only when its full rect is inside the group. Dragging a group moves those nodes without selecting them. Delete removes the group only. Resize from any edge while the group is selected. `Select Contents` in the context menu selects the nodes inside.
 

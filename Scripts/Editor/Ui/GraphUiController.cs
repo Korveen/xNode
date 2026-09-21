@@ -165,6 +165,12 @@ namespace XNodeEditor.Ui {
             ApplyVisualPrefs();
         }
 
+        public void RefreshNodes() {
+            if (Window.graph == null) return;
+            RebuildNodes();
+            RefreshSelection();
+        }
+
         void BuildToolbar() {
             _toolbar.Clear();
             _toolbar.Add(ToolbarLabel("Scale"));

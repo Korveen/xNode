@@ -150,6 +150,7 @@ namespace XNodeEditor {
             readonly HelpBox _duplicate;
             readonly List<int> _indices = new List<int>();
             readonly bool _allowEdits;
+            IVisualElementScheduledItem _nodeRefresh;
 
             public Panel(NodeEditorWindow window) {
                 _window = window;
@@ -315,6 +316,7 @@ namespace XNodeEditor {
             void OnNameChanged(ChangeEvent<string> _) {
                 _serializedGraph.ApplyModifiedProperties();
                 RefreshDuplicate();
+                RequestNodeRefresh();
             }
 
             void OnGetClicked(ClickEvent evt) {
@@ -339,6 +341,7 @@ namespace XNodeEditor {
                 EditorUtility.SetDirty(_window.graph);
                 RefreshSource();
                 RefreshDuplicate();
+                _window.RefreshNodes();
             }
 
             void ShowAddMenu(VisualElement anchor) {
@@ -368,6 +371,7 @@ namespace XNodeEditor {
                 EditorUtility.SetDirty(_window.graph);
                 RefreshSource();
                 RefreshDuplicate();
+                _window.RefreshNodes();
             }
 
             void RemoveVariable(int index) {
@@ -379,6 +383,13 @@ namespace XNodeEditor {
                 EditorUtility.SetDirty(_window.graph);
                 RefreshSource();
                 RefreshDuplicate();
+                _window.RefreshNodes();
+            }
+
+            void RequestNodeRefresh() {
+                _nodeRefresh?.Pause();
+                _nodeRefresh = Root.schedule.Execute(() => _window.RefreshNodes());
+                _nodeRefresh.ExecuteLater(200);
             }
 
             void RefreshSource() {
