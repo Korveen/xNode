@@ -6,7 +6,9 @@
                 <ui:VisualElement name="content" class="graph-content">
                     <ui:VisualElement name="grid" class="graph-grid" picking-mode="Ignore" />
                     <ui:VisualElement name="noodles" class="graph-noodles" picking-mode="Ignore" />
-                    <ui:VisualElement name="nodes" class="graph-nodes" picking-mode="Position" />
+                    <ui:VisualElement name="groups" class="graph-groups" picking-mode="Ignore" />
+                    <ui:VisualElement name="nodes" class="graph-nodes" picking-mode="Ignore" />
+                    <ui:VisualElement name="group-edges" class="graph-group-edges" picking-mode="Ignore" />
                 </ui:VisualElement>
                 <ui:VisualElement name="selection-box" class="selection-box" picking-mode="Ignore" />
             </ui:VisualElement>

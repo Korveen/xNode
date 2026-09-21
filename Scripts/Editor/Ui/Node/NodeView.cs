@@ -4,7 +4,7 @@ using UnityEngine.UIElements;
 using XNode;
 
 namespace XNodeEditor.Ui {
-    public sealed class NodeView : VisualElement {
+    public class NodeView : VisualElement {
         public Node Node { get; }
         public readonly Dictionary<NodePort, PortView> Ports = new Dictionary<NodePort, PortView>();
 
@@ -51,7 +51,7 @@ namespace XNodeEditor.Ui {
             _title.text = title ?? "";
         }
 
-        public void SetTint(Color color) {
+        public virtual void SetTint(Color color) {
             _header.style.backgroundColor = color;
         }
 
