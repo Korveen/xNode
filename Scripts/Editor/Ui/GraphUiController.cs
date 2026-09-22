@@ -126,7 +126,7 @@ namespace XNodeEditor.Ui {
             _root.focusable = true;
             RegisterViewport();
             RegisterBlackboardResize();
-            _content.AddManipulator(new ContextualMenuManipulator(OnViewportContext));
+            _viewport.AddManipulator(new ContextualMenuManipulator(OnViewportContext));
             _nodesLayer.AddManipulator(new ContextualMenuManipulator(OnViewportContext));
             _groupsLayer?.AddManipulator(new ContextualMenuManipulator(OnViewportContext));
             Undo.undoRedoPerformed += Rebuild;
