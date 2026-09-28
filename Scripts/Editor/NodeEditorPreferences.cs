@@ -47,6 +47,7 @@ namespace XNodeEditor {
             public bool showNodeIndices = false;
             public bool autoSave = true;
             public bool openOnCreate = true;
+            public bool allowMultipleWindows = false;
             public bool dragToCreate = true;
             public bool createFilter = true;
             public bool zoomToMouse = true;
@@ -339,7 +340,7 @@ namespace XNodeEditor {
         static SettingsProvider CreateXNodeProvider() {
             return new SettingsProvider("Preferences/XNode", SettingsScope.User) {
                 label = "XNode",
-                keywords = new HashSet<string> { "xnode", "node", "graph", "grid", "snap" },
+                keywords = new HashSet<string> { "xnode", "node", "graph", "grid", "snap", "window" },
                 guiHandler = _ => DrawSharedGUI()
             };
         }
@@ -396,6 +397,11 @@ namespace XNodeEditor {
             DrawSection("Editor", () => {
                 shared.autoSave = EditorGUILayout.Toggle("Autosave", shared.autoSave);
                 shared.openOnCreate = EditorGUILayout.Toggle("Open Editor on Create", shared.openOnCreate);
+                shared.allowMultipleWindows = EditorGUILayout.Toggle(
+                    new GUIContent(
+                        "Multiple Graphs",
+                        "On: each graph opens in its own window. Off: opening a graph replaces the one in the current window."),
+                    shared.allowMultipleWindows);
                 shared.dragToCreate = EditorGUILayout.Toggle(
                     new GUIContent("Drag to Create", "Drop an unconnected output on empty grid to create a node"),
                     shared.dragToCreate);

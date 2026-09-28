@@ -112,6 +112,7 @@ namespace XNodeEditor {
                 ConvertPortRectsToLocal();
                 _portRectsLocal = true;
             }
+            ApplyTitle();
         }
 
         private void OnUndoRedo() {
@@ -321,6 +322,7 @@ namespace XNodeEditor {
 
         void OnFocus() {
             current = this;
+            ApplyTitle();
             ValidateGraphEditor();
             if (graphEditor != null) {
                 graphEditor.OnWindowFocus();
@@ -455,15 +457,46 @@ namespace XNodeEditor {
             return false;
         }
 
+        internal void ApplyTitle() {
+            string name = graph != null ? graph.name : null;
+            if (string.IsNullOrEmpty(name)) name = "xNode";
+            if (titleContent != null && titleContent.text == name) return;
+            titleContent = new GUIContent(name);
+        }
+
         /// <summary>Open the provided graph in the NodeEditor</summary>
         public static NodeEditorWindow Open(XNode.NodeGraph graph) {
             if (!graph) return null;
 
-            NodeEditorWindow w = GetWindow(typeof(NodeEditorWindow), false, "xNode", true) as NodeEditorWindow;
+            NodeEditorWindow w = FindOrCreate(graph);
             w.wantsMouseMove = true;
             w.graph = graph;
+            w.ApplyTitle();
             w.RebuildUi();
+            w.Focus();
             return w;
+        }
+
+        static NodeEditorWindow FindOrCreate(XNode.NodeGraph graph) {
+            NodeEditorWindow[] windows = Resources.FindObjectsOfTypeAll<NodeEditorWindow>();
+            for (int i = 0; i < windows.Length; i++) {
+                NodeEditorWindow open = windows[i];
+                if (open != null && open.graph == graph) return open;
+            }
+
+            if (!NodeEditorPreferences.GetSettings().allowMultipleWindows) {
+                NodeEditorWindow focused = focusedWindow as NodeEditorWindow;
+                if (focused != null) return focused;
+                if (current != null) return current;
+                for (int i = 0; i < windows.Length; i++) {
+                    if (windows[i] != null) return windows[i];
+                }
+            }
+
+            NodeEditorWindow created = CreateInstance<NodeEditorWindow>();
+            created.wantsMouseMove = true;
+            created.Show();
+            return created;
         }
 
         /// <summary> Repaint all open NodeEditorWindows. </summary>
