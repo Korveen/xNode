@@ -10,6 +10,7 @@ namespace XNodeEditor.Ui {
 
         readonly Label _title;
         readonly Label _index;
+        readonly Image _icon;
         readonly Label _badge;
         readonly VisualElement _header;
         readonly VisualElement _body;
@@ -31,11 +32,17 @@ namespace XNodeEditor.Ui {
             _index = new Label();
             _index.AddToClassList("node-header__index");
             _index.pickingMode = PickingMode.Ignore;
+            _icon = new Image();
+            _icon.AddToClassList("node-header__icon");
+            _icon.pickingMode = PickingMode.Ignore;
+            _icon.scaleMode = ScaleMode.ScaleToFit;
             _badge = new Label();
             _badge.AddToClassList("node-header__badge");
             _header.Add(_index);
+            _header.Add(_icon);
             _header.Add(_title);
             _header.Add(_badge);
+            SetIcon(node != null ? XNodeEditor.NodeIcons.Get(node.GetType()) : null);
             Add(_header);
 
             _body = new VisualElement();
@@ -49,6 +56,12 @@ namespace XNodeEditor.Ui {
 
         public void SetTitle(string title) {
             _title.text = title ?? "";
+        }
+
+        public void SetIcon(Texture2D texture) {
+            bool visible = texture != null;
+            _icon.image = texture;
+            _icon.EnableInClassList("visible", visible);
         }
 
         public virtual void SetTint(Color color) {

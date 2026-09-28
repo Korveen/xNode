@@ -428,6 +428,19 @@ namespace XNode {
             }
         }
 
+        /// <summary>
+        /// Icon file name without extension. Resolved from a folder named NodeIcons.
+        /// The nearest attribute on the type hierarchy wins. An empty name clears an inherited icon.
+        /// </summary>
+        [AttributeUsage(AttributeTargets.Class, Inherited = true, AllowMultiple = false)]
+        public class NodeIconAttribute : Attribute {
+            public string icon;
+            /// <param name="icon">File name without extension, or empty to clear.</param>
+            public NodeIconAttribute(string icon) {
+                this.icon = icon;
+            }
+        }
+
         /// <summary> Specify a width for this node type </summary>
         [AttributeUsage(AttributeTargets.Class, AllowMultiple = false)]
         public class NodeWidthAttribute : Attribute {

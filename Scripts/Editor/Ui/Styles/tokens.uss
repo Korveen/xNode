@@ -267,6 +267,18 @@
     color: #ffffff;
 }
 
+.node-header__icon {
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+    margin-right: 4px;
+    display: none;
+}
+
+.node-header__icon.visible {
+    display: flex;
+}
+
 .node-header__rename {
     flex-grow: 1;
     min-width: 40px;

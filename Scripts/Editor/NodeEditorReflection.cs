@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -37,6 +37,23 @@ namespace XNodeEditor {
                 CacheAttributes<Color, XNode.Node.NodeTintAttribute>(ref nodeTint, x => x.color);
             }
             return nodeTint.TryGetValue(nodeType, out tint);
+        }
+
+        /// <summary>
+        /// Nearest [NodeIcon] on the type hierarchy. An empty name is an explicit clear and returns false.
+        /// </summary>
+        public static bool TryGetNodeIcon(this Type nodeType, out string icon) {
+            icon = null;
+            Type type = nodeType;
+            while (type != null && typeof(XNode.Node).IsAssignableFrom(type)) {
+                object attr = Attribute.GetCustomAttribute(type, typeof(XNode.Node.NodeIconAttribute), false);
+                if (attr is XNode.Node.NodeIconAttribute iconAttribute) {
+                    icon = iconAttribute.icon;
+                    return !string.IsNullOrEmpty(icon);
+                }
+                type = type.BaseType;
+            }
+            return false;
         }
 
         /// <summary> Get custom node widths defined with [NodeWidth(width)] </summary>
