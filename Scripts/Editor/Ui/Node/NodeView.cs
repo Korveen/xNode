@@ -14,6 +14,7 @@ namespace XNodeEditor.Ui {
         readonly Label _badge;
         readonly VisualElement _header;
         readonly VisualElement _body;
+        readonly VisualElement _statusRing;
 
         public VisualElement Header => _header;
         public VisualElement Body => _body;
@@ -49,6 +50,11 @@ namespace XNodeEditor.Ui {
             _body.AddToClassList("node-body");
             _body.style.flexDirection = FlexDirection.Column;
             Add(_body);
+
+            _statusRing = new VisualElement();
+            _statusRing.AddToClassList("node-status-ring");
+            _statusRing.pickingMode = PickingMode.Ignore;
+            Add(_statusRing);
 
             style.position = Position.Absolute;
             SyncPosition();
@@ -102,29 +108,36 @@ namespace XNodeEditor.Ui {
         }
 
         public void ApplySelectionColor(Color color) {
+            style.borderTopWidth = StyleKeyword.Null;
+            style.borderBottomWidth = StyleKeyword.Null;
+            style.borderLeftWidth = StyleKeyword.Null;
+            style.borderRightWidth = StyleKeyword.Null;
             if (ClassListContains("selected")) {
                 style.borderTopColor = color;
                 style.borderBottomColor = color;
                 style.borderLeftColor = color;
                 style.borderRightColor = color;
-                style.borderTopWidth = 2;
-                style.borderBottomWidth = 2;
-                style.borderLeftWidth = 2;
-                style.borderRightWidth = 2;
             } else {
                 style.borderTopColor = StyleKeyword.Null;
                 style.borderBottomColor = StyleKeyword.Null;
                 style.borderLeftColor = StyleKeyword.Null;
                 style.borderRightColor = StyleKeyword.Null;
-                style.borderTopWidth = StyleKeyword.Null;
-                style.borderBottomWidth = StyleKeyword.Null;
-                style.borderLeftWidth = StyleKeyword.Null;
-                style.borderRightWidth = StyleKeyword.Null;
             }
         }
 
         public void SetDimmed(bool dimmed) {
             EnableInClassList("dimmed", dimmed);
+        }
+
+        public void SetStatusOutline(Color? color) {
+            bool visible = color.HasValue;
+            _statusRing.EnableInClassList("visible", visible);
+            if (!visible) return;
+            Color value = color.Value;
+            _statusRing.style.borderTopColor = value;
+            _statusRing.style.borderBottomColor = value;
+            _statusRing.style.borderLeftColor = value;
+            _statusRing.style.borderRightColor = value;
         }
 
         public void SetIndex(int? index) {

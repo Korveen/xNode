@@ -240,11 +240,27 @@
 
 .node-view.selected {
     border-color: #f0c040;
-    border-width: 2px;
 }
 
 .node-view.dimmed {
     opacity: 0.45;
+}
+
+.node-status-ring {
+    position: absolute;
+    left: -2px;
+    right: -2px;
+    top: -2px;
+    bottom: -2px;
+    border-width: 2px;
+    border-radius: var(--xn-radius);
+    background-color: rgba(0, 0, 0, 0);
+    display: none;
+    padding: 0;
+}
+
+.node-status-ring.visible {
+    display: flex;
 }
 
 .node-header {

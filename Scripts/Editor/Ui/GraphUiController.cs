@@ -53,6 +53,7 @@ namespace XNodeEditor.Ui {
         bool _dragCollapseOnClick;
         Node _dragClickedNode;
         bool _resizingBlackboard;
+        bool _runtimeVisualsCleared;
         readonly Dictionary<Node, Vector2> _dragOrigins = new Dictionary<Node, Vector2>();
         Vector2 _dragPointerStart;
         GroupNode _resizeGroup;
@@ -134,19 +135,28 @@ namespace XNodeEditor.Ui {
             NodeEditorPreferences.Changed += ApplyVisualPrefs;
             ApplyView();
             Rebuild();
-            _root.schedule.Execute(RefreshRuntime).Every(120);
+            EditorApplication.update += RefreshRuntime;
         }
 
         void RefreshRuntime() {
-            if (!EditorApplication.isPlaying || Window.graph == null) return;
+            if (Window.graph == null) return;
+            if (!EditorApplication.isPlaying) {
+                if (_runtimeVisualsCleared) return;
+                _runtimeVisualsCleared = true;
+            } else {
+                _runtimeVisualsCleared = false;
+            }
+
             foreach (var pair in Nodes) {
                 NodeEditor editor = NodeEditor.GetEditor(pair.Key, Window);
                 editor.BuildHeader(pair.Value);
             }
             _noodles.MarkDirtyRepaint();
+            Window.Repaint();
         }
 
         public void Dispose() {
+            EditorApplication.update -= RefreshRuntime;
             Undo.undoRedoPerformed -= Rebuild;
             Selection.selectionChanged -= RefreshSelection;
             NodeEditorPreferences.Changed -= ApplyVisualPrefs;
