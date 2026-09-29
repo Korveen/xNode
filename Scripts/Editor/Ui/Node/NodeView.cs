@@ -11,7 +11,6 @@ namespace XNodeEditor.Ui {
         readonly Label _title;
         readonly Label _index;
         readonly Image _icon;
-        readonly Label _badge;
         readonly VisualElement _header;
         readonly VisualElement _body;
         readonly VisualElement _statusRing;
@@ -30,19 +29,16 @@ namespace XNodeEditor.Ui {
             _header.AddToClassList("node-header");
             _title = new Label(node != null ? node.name : "Node");
             _title.AddToClassList("node-header__title");
-            _index = new Label();
-            _index.AddToClassList("node-header__index");
-            _index.pickingMode = PickingMode.Ignore;
             _icon = new Image();
             _icon.AddToClassList("node-header__icon");
             _icon.pickingMode = PickingMode.Ignore;
             _icon.scaleMode = ScaleMode.ScaleToFit;
-            _badge = new Label();
-            _badge.AddToClassList("node-header__badge");
-            _header.Add(_index);
+            _index = new Label();
+            _index.AddToClassList("node-header__index");
+            _index.pickingMode = PickingMode.Ignore;
             _header.Add(_icon);
             _header.Add(_title);
-            _header.Add(_badge);
+            _header.Add(_index);
             SetIcon(node != null ? XNodeEditor.NodeIcons.Get(node.GetType()) : null);
             Add(_header);
 
@@ -144,13 +140,6 @@ namespace XNodeEditor.Ui {
             bool visible = index.HasValue;
             _index.EnableInClassList("visible", visible);
             _index.text = visible ? index.Value.ToString() : "";
-        }
-
-        public void SetBadge(string text, Color color) {
-            bool visible = !string.IsNullOrEmpty(text);
-            _badge.EnableInClassList("visible", visible);
-            _badge.text = text ?? "";
-            _badge.style.backgroundColor = color;
         }
 
         public void SyncPosition() {
