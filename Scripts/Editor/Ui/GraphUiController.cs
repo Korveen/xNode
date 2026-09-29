@@ -440,12 +440,12 @@ namespace XNodeEditor.Ui {
         void BindPort(PortView portView) {
             portView.RegisterCallback<PointerEnterEvent>(_ => {
                 Window.hoveredPort = portView.Port;
-                portView.AddToClassList("hovered");
+                portView.SetHovered(true);
                 _noodles.MarkDirtyRepaint();
             });
             portView.RegisterCallback<PointerLeaveEvent>(_ => {
                 if (Window.hoveredPort == portView.Port) Window.hoveredPort = null;
-                portView.RemoveFromClassList("hovered");
+                portView.SetHovered(false);
                 _noodles.MarkDirtyRepaint();
             });
             portView.RegisterCallback<PointerDownEvent>(evt => {
@@ -1115,6 +1115,14 @@ namespace XNodeEditor.Ui {
                 Window.RemoveSelectedNodes();
                 Rebuild();
             });
+            menu.AppendSeparator();
+            MonoScript script = view.Node != null ? MonoScript.FromScriptableObject(view.Node) : null;
+            if (script != null) {
+                MonoScript captured = script;
+                menu.AppendAction("Edit Script", _ => AssetDatabase.OpenAsset(captured));
+            } else {
+                menu.AppendAction("Edit Script", _ => { }, DropdownMenuAction.Status.Disabled);
+            }
         }
 
         void FillPortMenu(DropdownMenu menu, NodePort port) {

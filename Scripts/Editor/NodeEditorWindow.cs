@@ -9,7 +9,7 @@ using Object = UnityEngine.Object;
 
 namespace XNodeEditor {
     [InitializeOnLoad]
-    public partial class NodeEditorWindow : EditorWindow {
+    public partial class NodeEditorWindow : EditorWindow, IHasCustomMenu {
         public static NodeEditorWindow current;
 
         /// <summary> Stores port handle rects in node-local space. Add node.position when drawing. </summary>
@@ -497,6 +497,10 @@ namespace XNodeEditor {
             created.wantsMouseMove = true;
             created.Show();
             return created;
+        }
+
+        public void AddItemsToMenu(GenericMenu menu) {
+            graphEditor?.AddItemsToMenu(menu);
         }
 
         /// <summary> Repaint all open NodeEditorWindows. </summary>

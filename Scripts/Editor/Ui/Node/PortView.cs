@@ -9,6 +9,10 @@ namespace XNodeEditor.Ui {
 
         public Vector2 LocalOffsetOnNode;
 
+        static readonly Color ConnectedBorder = new Color(0.102f, 0.102f, 0.102f, 1f);
+        static readonly Color SlotBorder = new Color(0.533f, 0.533f, 0.533f, 1f);
+        Color _restingBorder = SlotBorder;
+
         public PortView(NodePort port, NodeView nodeView) {
             Port = port;
             NodeView = nodeView;
@@ -20,8 +24,25 @@ namespace XNodeEditor.Ui {
         }
 
         public void ApplyColor(Color color) {
-            if (ClassListContains("port-slot")) return;
-            style.backgroundColor = color;
+            bool slot = ClassListContains("port-slot");
+            bool connected = !slot && Port != null && Port.IsConnected;
+            style.backgroundColor = connected ? color : Color.clear;
+            if (slot) _restingBorder = SlotBorder;
+            else if (connected) _restingBorder = ConnectedBorder;
+            else _restingBorder = color;
+            if (!ClassListContains("hovered")) ApplyBorder(_restingBorder);
+        }
+
+        public void SetHovered(bool hovered) {
+            EnableInClassList("hovered", hovered);
+            ApplyBorder(hovered ? Color.white : _restingBorder);
+        }
+
+        void ApplyBorder(Color color) {
+            style.borderTopColor = color;
+            style.borderRightColor = color;
+            style.borderBottomColor = color;
+            style.borderLeftColor = color;
         }
 
         public void ApplyTooltip(string text) {

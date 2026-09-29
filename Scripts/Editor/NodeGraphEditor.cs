@@ -15,6 +15,8 @@ namespace XNodeEditor {
 
         public virtual void BuildToolbar(VisualElement slot) { }
 
+        public virtual void AddItemsToMenu(GenericMenu menu) { }
+
         public virtual void BuildOverlay(VisualElement overlay) { }
 
         public virtual void ApplyStyles(VisualElement root) { }

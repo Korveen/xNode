@@ -399,8 +399,8 @@
     min-height: var(--xn-port-size);
     border-radius: 8px;
     border-width: 2px;
-    border-color: #1a1a1a;
-    background-color: #888888;
+    border-color: #888888;
+    background-color: rgba(0, 0, 0, 0);
     margin-top: 0;
     margin-bottom: 0;
     flex-shrink: 0;
@@ -414,10 +414,6 @@
 .port-view.output {
     margin-left: 0;
     margin-right: -14px;
-}
-
-.port-view.hovered {
-    border-color: #ffffff;
 }
 
 .port-view.vertical {
