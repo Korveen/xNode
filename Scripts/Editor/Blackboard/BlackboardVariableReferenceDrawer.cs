@@ -1,22 +1,20 @@
 using System;
 using System.Collections.Generic;
-using System.Reflection;
 using UnityEditor;
 using UnityEngine.UIElements;
 
 namespace XNodeEditor
 {
-    [CustomPropertyDrawer(typeof(XNode.BlackboardVariableReference))]
     [CustomPropertyDrawer(typeof(XNode.BlackboardVariableReference<>))]
-    internal sealed class BlackboardVariableReferenceDrawer: PropertyDrawer
+    internal sealed class BlackboardVariableReferenceDrawer : PropertyDrawer
     {
         public override VisualElement CreatePropertyGUI(SerializedProperty property)
         {
             var idProperty = property.FindPropertyRelative("variableId");
             var node = property.serializedObject.targetObject as XNode.Node;
             var valueType = GetExpectedValueType(node?.GetType());
-            var choices = new List<string> {"<None>"};
-            var ids = new List<string> {string.Empty};
+            var choices = new List<string> { "<None>" };
+            var ids = new List<string> { string.Empty };
             var selected = 0;
 
             if (node != null && node.graph != null)
@@ -74,37 +72,21 @@ namespace XNodeEditor
             var fieldType = fieldInfo?.FieldType;
             if (fieldType != null &&
                 fieldType.IsGenericType &&
-                fieldType.GetGenericTypeDefinition() ==
-                typeof(XNode.BlackboardVariableReference<>))
+                fieldType.GetGenericTypeDefinition() == typeof(XNode.BlackboardVariableReference<>))
             {
-                return fieldType.GetGenericArguments()[0];
+                var argument = fieldType.GetGenericArguments()[0];
+                if (!argument.IsGenericParameter)
+                    return argument;
             }
 
-            return GetExpectedValueTypeFromNode(nodeType);
-        }
-
-        private static Type GetExpectedValueTypeFromNode(Type nodeType)
-        {
             var current = nodeType;
             while (current != null)
             {
                 if (current.IsGenericType)
                 {
-                    var definition = current.GetGenericTypeDefinition();
-                    if (definition == typeof(XNode.GetBlackboardVariableNode<>))
-                    {
-                        return current.GetGenericArguments()[0];
-                    }
-
-                    var referenceField = current.GetField(
-                        "Variable",
-                        BindingFlags.Instance | BindingFlags.Public |
-                        BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
-                    if (referenceField?.FieldType ==
-                        typeof(XNode.BlackboardVariableReference))
-                    {
-                        return current.GetGenericArguments()[0];
-                    }
+                    var argument = current.GetGenericArguments()[0];
+                    if (!argument.IsGenericParameter)
+                        return argument;
                 }
 
                 current = current.BaseType;

@@ -116,7 +116,6 @@ namespace XNodeEditor {
         internal static string TypeLabel(Type type) {
             if (type == null) return "?";
             if (TypeLabels.TryGetValue(type, out string label)) return label;
-            if (typeof(UnityEngine.Object).IsAssignableFrom(type)) return "Object";
             return type.Name;
         }
 
@@ -133,11 +132,11 @@ namespace XNodeEditor {
                 getterType,
                 window.WindowToGridPosition(windowPosition));
 
-            Type genericBase = node.GetType().BaseType;
-            var variableProperty = genericBase?.GetProperty("Variable");
-            variableProperty?.SetValue(
-                node,
-                new XNode.BlackboardVariableReference(variable.Id));
+            Type referenceType = typeof(XNode.BlackboardVariableReference<>)
+                .MakeGenericType(variable.ValueType);
+            object reference = Activator.CreateInstance(referenceType, variable.Id);
+            var variableProperty = node.GetType().GetProperty("Variable");
+            variableProperty?.SetValue(node, reference);
             EditorUtility.SetDirty(node);
         }
 

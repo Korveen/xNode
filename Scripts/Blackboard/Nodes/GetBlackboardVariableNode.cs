@@ -4,10 +4,10 @@ namespace XNode
 {
     public abstract class GetBlackboardVariableNode<T> : Node, IAuxiliaryGraphNode
     {
-        [SerializeField] private BlackboardVariableReference variable;
+        [SerializeField] private BlackboardVariableReference<T> variable;
         [Output(ShowBackingValue.Never)] public T value;
 
-        public BlackboardVariableReference Variable
+        public BlackboardVariableReference<T> Variable
         {
             get => variable;
             set => variable = value;

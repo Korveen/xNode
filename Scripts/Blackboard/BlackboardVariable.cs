@@ -126,13 +126,4 @@ namespace XNode {
         }
     }
 
-    [Serializable] public sealed class BoolBlackboardVariable : BlackboardVariable<bool> { }
-    [Serializable] public sealed class IntBlackboardVariable : BlackboardVariable<int> { }
-    [Serializable] public sealed class FloatBlackboardVariable : BlackboardVariable<float> { }
-    [Serializable] public sealed class StringBlackboardVariable : BlackboardVariable<string> { }
-    [Serializable] public sealed class Vector2BlackboardVariable : BlackboardVariable<Vector2> { }
-    [Serializable] public sealed class Vector3BlackboardVariable : BlackboardVariable<Vector3> { }
-    [Serializable] public sealed class QuaternionBlackboardVariable : BlackboardVariable<Quaternion> { }
-    [Serializable] public sealed class ColorBlackboardVariable : BlackboardVariable<Color> { }
-    [Serializable] public sealed class ObjectBlackboardVariable : BlackboardVariable<UnityEngine.Object> { }
 }
