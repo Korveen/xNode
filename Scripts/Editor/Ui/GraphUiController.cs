@@ -1094,13 +1094,14 @@ namespace XNodeEditor.Ui {
         }
 
         void FillNodeMenu(DropdownMenu menu, NodeView view) {
-            Window.SelectNode(view.Node, false);
+            if (!Selection.Contains(view.Node)) Window.SelectNode(view.Node, false);
             menu.AppendAction("Rename", _ => Window.RenameSelectedNode());
             menu.AppendAction("Copy", _ => Window.CopySelectedNodes());
             menu.AppendAction("Duplicate", _ => {
                 Window.DuplicateSelectedNodes();
                 Rebuild();
             });
+            Window.graphEditor?.AddItemsToNodeMenu(menu, view.Node);
             if (view.Node is GroupNode group) {
                 GroupNode captured = group;
                 menu.AppendAction("Select Contents", _ => {
