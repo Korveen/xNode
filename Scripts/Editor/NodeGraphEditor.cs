@@ -17,6 +17,8 @@ namespace XNodeEditor {
 
         public virtual void AddItemsToMenu(GenericMenu menu) { }
 
+        public virtual void AddItemsToNodeMenu(DropdownMenu menu, XNode.Node node) { }
+
         public virtual void BuildOverlay(VisualElement overlay) { }
 
         public virtual void ApplyStyles(VisualElement root) { }
