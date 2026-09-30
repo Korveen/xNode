@@ -400,20 +400,20 @@
     border-radius: 8px;
     border-width: 2px;
     border-color: #888888;
-    background-color: rgba(0, 0, 0, 0);
+    background-color: rgba(0.22, 0.22, 0.22, 1);
     margin-top: 0;
     margin-bottom: 0;
     flex-shrink: 0;
 }
 
 .port-view.input {
-    margin-left: -14px;
-    margin-right: 0;
+    margin-left: -16px;
+    margin-right: 2px;
 }
 
 .port-view.output {
-    margin-left: 0;
-    margin-right: -14px;
+    margin-left: 2px;
+    margin-right: -16px;
 }
 
 .port-view.vertical {
