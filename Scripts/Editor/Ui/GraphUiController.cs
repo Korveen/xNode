@@ -743,7 +743,6 @@ namespace XNodeEditor.Ui {
         void RememberDragOrigin(Node node) {
             if (node == null || node.graph != Window.graph) return;
             if (_dragOrigins.ContainsKey(node)) return;
-            Undo.RecordObject(node, "Moved Node");
             _dragOrigins[node] = node.position;
         }
 
@@ -782,9 +781,26 @@ namespace XNodeEditor.Ui {
 
         void EndNodeDrag() {
             if (_draggingNodes) {
-                foreach (var pair in _dragOrigins)
-                    EditorUtility.SetDirty(pair.Key);
-                Window.graphEditor?.OnNodesMoved();
+                var moved = new List<Object>();
+                var finals = new List<Vector2>();
+                foreach (var pair in _dragOrigins) {
+                    if (pair.Key == null || pair.Key.position == pair.Value) continue;
+                    moved.Add(pair.Key);
+                    finals.Add(pair.Key.position);
+                    pair.Key.position = pair.Value;
+                }
+                if (moved.Count > 0) {
+                    int group = Undo.GetCurrentGroup();
+                    Undo.RecordObjects(moved.ToArray(), "Moved Node");
+                    for (int i = 0; i < moved.Count; i++) {
+                        ((Node)moved[i]).position = finals[i];
+                        EditorUtility.SetDirty(moved[i]);
+                    }
+                    Window.graphEditor?.OnNodesMoved();
+                    Undo.CollapseUndoOperations(group);
+                } else {
+                    Window.graphEditor?.OnNodesMoved();
+                }
             }
             _draggingNodes = false;
             _dragCollapseOnClick = false;
