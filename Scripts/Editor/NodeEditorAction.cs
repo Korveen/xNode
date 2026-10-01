@@ -191,7 +191,7 @@ namespace XNodeEditor {
             if (inputPort != null) autoConnectOutput.Connect(inputPort);
 
             EditorUtility.SetDirty(graph);
-            if (NodeEditorPreferences.GetSettings().autoSave) AssetDatabase.SaveAssets();
+            AssetDatabase.SaveAssets();
             autoConnectOutput = null;
         }
     }

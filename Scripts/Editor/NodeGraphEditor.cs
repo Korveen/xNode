@@ -220,7 +220,7 @@ namespace XNodeEditor {
             node.position = position;
             if (node.name == null || node.name.Trim() == "") node.name = NodeEditorUtilities.NodeDefaultName(type);
             if (!string.IsNullOrEmpty(AssetDatabase.GetAssetPath(target))) AssetDatabase.AddObjectToAsset(node, target);
-            if (NodeEditorPreferences.GetSettings().autoSave) AssetDatabase.SaveAssets();
+            AssetDatabase.SaveAssets();
             NodeEditorWindow.RepaintAll();
             return node;
         }
@@ -232,7 +232,7 @@ namespace XNodeEditor {
             Undo.RegisterCreatedObjectUndo(node, "Duplicate Node");
             node.name = original.name;
             if (!string.IsNullOrEmpty(AssetDatabase.GetAssetPath(target))) AssetDatabase.AddObjectToAsset(node, target);
-            if (NodeEditorPreferences.GetSettings().autoSave) AssetDatabase.SaveAssets();
+            AssetDatabase.SaveAssets();
             return node;
         }
 
@@ -262,7 +262,7 @@ namespace XNodeEditor {
                     Undo.RecordObject(conn.node, "Delete Node");
             target.RemoveNode(node);
             Undo.DestroyObjectImmediate(node);
-            if (NodeEditorPreferences.GetSettings().autoSave) AssetDatabase.SaveAssets();
+            AssetDatabase.SaveAssets();
         }
 
         [AttributeUsage(AttributeTargets.Class, Inherited = false)]

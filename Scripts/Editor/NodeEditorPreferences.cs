@@ -395,7 +395,6 @@ namespace XNodeEditor {
                 EditorGUI.indentLevel--;
             });
             DrawSection("Editor", () => {
-                shared.autoSave = EditorGUILayout.Toggle("Autosave", shared.autoSave);
                 shared.openOnCreate = EditorGUILayout.Toggle("Open Editor on Create", shared.openOnCreate);
                 shared.allowMultipleWindows = EditorGUILayout.Toggle(
                     new GUIContent(

@@ -324,10 +324,7 @@ namespace XNodeEditor {
             current = this;
             ApplyTitle();
             ValidateGraphEditor();
-            if (graphEditor != null) {
-                graphEditor.OnWindowFocus();
-                if (NodeEditorPreferences.GetSettings().autoSave) AssetDatabase.SaveAssets();
-            }
+            if (graphEditor != null) graphEditor.OnWindowFocus();
         }
         
         void OnLostFocus() {
@@ -369,7 +366,7 @@ namespace XNodeEditor {
         public void Save() {
             if (AssetDatabase.Contains(graph)) {
                 EditorUtility.SetDirty(graph);
-                if (NodeEditorPreferences.GetSettings().autoSave) AssetDatabase.SaveAssets();
+                AssetDatabase.SaveAssets();
             } else SaveAs();
         }
 
@@ -381,7 +378,7 @@ namespace XNodeEditor {
                 if (existingGraph != null) AssetDatabase.DeleteAsset(path);
                 AssetDatabase.CreateAsset(graph, path);
                 EditorUtility.SetDirty(graph);
-                if (NodeEditorPreferences.GetSettings().autoSave) AssetDatabase.SaveAssets();
+                AssetDatabase.SaveAssets();
             }
         }
 
