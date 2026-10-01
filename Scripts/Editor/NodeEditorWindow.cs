@@ -155,7 +155,7 @@ namespace XNodeEditor {
             set => blackboardWidth = Mathf.Clamp(value, 300f, 520f);
         }
 
-        public const float OverlayToolbarHeight = 21f;
+        public const float OverlayToolbarHeight = 28f;
 
         public int TabPadding => isDocked() ? 19 : 22;
 
@@ -326,7 +326,7 @@ namespace XNodeEditor {
             ValidateGraphEditor();
             if (graphEditor != null) graphEditor.OnWindowFocus();
         }
-        
+
         void OnLostFocus() {
             if (graphEditor != null) graphEditor.OnWindowFocusLost();
         }

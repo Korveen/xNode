@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using UnityEditor;
 using UnityEditor.UIElements;
@@ -112,16 +113,16 @@ namespace XNodeEditor.Ui {
 
             NodeEditorPreferences.SharedSettings shared = NodeEditorPreferences.GetShared();
             _zoomSlider = new Slider(shared.minZoom, shared.maxZoom) { value = window.zoom };
-            _zoomSlider.style.width = 80;
+            _zoomSlider.AddToClassList("toolbar-slider");
             _zoomLabel = new Label();
             _zoomLabel.AddToClassList("toolbar-label");
+            _zoomLabel.AddToClassList("toolbar-zoom");
             _searchField = new TextField();
-            _searchField.style.width = 140;
+            _searchField.AddToClassList("toolbar-search");
             _variableFilter = new DropdownField();
-            _variableFilter.style.width = 140;
-            _graphToolbarSlot = new VisualElement();
-            _graphToolbarSlot.style.flexDirection = FlexDirection.Row;
-            _graphToolbarSlot.style.alignItems = Align.Center;
+            _variableFilter.AddToClassList("toolbar-filter");
+            _graphToolbarSlot = ToolbarGroup();
+            _graphToolbarSlot.AddToClassList("toolbar-group-extra");
 
             BuildToolbar();
             _root.focusable = true;
@@ -183,28 +184,38 @@ namespace XNodeEditor.Ui {
 
         void BuildToolbar() {
             _toolbar.Clear();
-            _toolbar.Add(ToolbarLabel("Scale"));
-            _toolbar.Add(_zoomSlider);
-            _toolbar.Add(_zoomLabel);
+
+            VisualElement zoomGroup = ToolbarGroup();
+            zoomGroup.Add(ToolbarLabel("Scale"));
+            zoomGroup.Add(_zoomSlider);
+            zoomGroup.Add(_zoomLabel);
+            _toolbar.Add(zoomGroup);
             _zoomSlider.RegisterValueChangedCallback(evt => {
                 Window.zoom = evt.newValue;
                 ApplyView();
             });
 
-            _toolbar.Add(new Button(FrameSelection) { text = "Frame" });
-            _toolbar.Add(new Button(FrameAll) { text = "All" });
-            _toolbar.Add(new Button(() => EditorGUIUtility.PingObject(Window.graph)) { text = "Ping" });
+            VisualElement frameGroup = ToolbarGroup();
+            frameGroup.Add(ToolbarButton(FrameSelection, "Frame"));
+            frameGroup.Add(ToolbarButton(FrameAll, "All"));
+            frameGroup.Add(ToolbarButton(() => EditorGUIUtility.PingObject(Window.graph), "Ping"));
+            _toolbar.Add(frameGroup);
+
+            VisualElement viewGroup = ToolbarGroup();
             _snapButton = new Button(ToggleGridSnap) { text = "Snap" };
             _snapButton.tooltip = "Snap nodes to the grid while dragging. Ctrl inverts.";
             _snapButton.AddToClassList("toolbar-toggle");
             _snapButton.EnableInClassList("active", NodeEditorPreferences.GetSettings().gridSnap);
-            _toolbar.Add(_snapButton);
+            viewGroup.Add(_snapButton);
             _indexButton = new Button(ToggleNodeIndices) { text = "Idx" };
             _indexButton.tooltip = "Show compiled plan indices on node headers.";
             _indexButton.AddToClassList("toolbar-toggle");
             _indexButton.EnableInClassList("active", NodeEditorPreferences.GetSettings().showNodeIndices);
-            _toolbar.Add(_indexButton);
-            _toolbar.Add(ToolbarLabel("Node"));
+            viewGroup.Add(_indexButton);
+            _toolbar.Add(viewGroup);
+
+            VisualElement searchGroup = ToolbarGroup();
+            searchGroup.Add(ToolbarLabel("Node"));
             _searchField.value = Window.NodeSearch;
             _searchField.RegisterValueChangedCallback(evt => {
                 Window.NodeSearch = evt.newValue;
@@ -216,9 +227,13 @@ namespace XNodeEditor.Ui {
                 Window.FrameNodeSearchResult(evt.shiftKey ? -1 : 1);
                 ApplyView();
             });
-            _toolbar.Add(_searchField);
-            _toolbar.Add(ToolbarLabel("Uses"));
-            _toolbar.Add(_variableFilter);
+            searchGroup.Add(_searchField);
+            _toolbar.Add(searchGroup);
+
+            VisualElement usesGroup = ToolbarGroup();
+            usesGroup.Add(ToolbarLabel("Uses"));
+            usesGroup.Add(_variableFilter);
+            _toolbar.Add(usesGroup);
             _variableFilter.RegisterValueChangedCallback(evt => {
                 int index = _variableFilter.choices != null
                     ? _variableFilter.choices.IndexOf(evt.newValue)
@@ -289,6 +304,7 @@ namespace XNodeEditor.Ui {
         void RebuildToolbarExtras() {
             _graphToolbarSlot.Clear();
             Window.graphEditor?.BuildToolbar(_graphToolbarSlot);
+            _graphToolbarSlot.EnableInClassList("toolbar-group-empty", _graphToolbarSlot.childCount == 0);
             RebuildVariableFilter();
         }
 
@@ -1319,7 +1335,7 @@ namespace XNodeEditor.Ui {
             _content.style.translate = new Translate(Window.panOffset.x, Window.panOffset.y);
             _content.style.scale = new Scale(new Vector3(s, s, 1f));
             _zoomSlider.SetValueWithoutNotify(Window.zoom);
-            _zoomLabel.text = Window.zoom.ToString("0.0#x");
+            _zoomLabel.text = Window.zoom.ToString("0.00", CultureInfo.InvariantCulture) + "x";
             NodeEditorPreferences.SharedSettings shared = NodeEditorPreferences.GetShared();
             _snapButton?.EnableInClassList("active", shared.gridSnap);
             _indexButton?.EnableInClassList("active", shared.showNodeIndices);
@@ -1375,6 +1391,18 @@ namespace XNodeEditor.Ui {
             if (_cursorLabel == null) return;
             Vector2 grid = ScreenToGrid(panelPosition);
             _cursorLabel.text = $"{Mathf.RoundToInt(grid.x)}, {Mathf.RoundToInt(grid.y)}";
+        }
+
+        static VisualElement ToolbarGroup() {
+            var group = new VisualElement();
+            group.AddToClassList("toolbar-group");
+            return group;
+        }
+
+        static Button ToolbarButton(Action action, string text) {
+            var button = new Button(action) { text = text };
+            button.AddToClassList("toolbar-btn");
+            return button;
         }
 
         static Label ToolbarLabel(string text) {
