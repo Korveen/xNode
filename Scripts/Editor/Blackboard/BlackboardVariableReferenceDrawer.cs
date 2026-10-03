@@ -7,12 +7,13 @@ using UnityEngine.UIElements;
 
 namespace XNodeEditor
 {
+    [CustomPropertyDrawer(typeof(XNode.BlackboardVariableReference))]
     [CustomPropertyDrawer(typeof(XNode.BlackboardVariableReference<>))]
     internal sealed class BlackboardVariableReferenceDrawer : PropertyDrawer
     {
         public override VisualElement CreatePropertyGUI(SerializedProperty property)
         {
-            var idProperty = property.FindPropertyRelative("variableId");
+            var idProperty = property.FindPropertyRelative("_variableId");
             var choices = new List<string>();
             var ids = new List<string>();
             var selected = CollectChoices(property, choices, ids);
@@ -35,7 +36,7 @@ namespace XNodeEditor
 
         public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
         {
-            var idProperty = property.FindPropertyRelative("variableId");
+            var idProperty = property.FindPropertyRelative("_variableId");
             var choices = new List<string>();
             var ids = new List<string>();
             var selected = CollectChoices(property, choices, ids);
@@ -55,28 +56,31 @@ namespace XNodeEditor
             return EditorGUIUtility.singleLineHeight;
         }
 
-        int CollectChoices(SerializedProperty property, List<string> choices, List<string> ids)
+        private int CollectChoices(SerializedProperty property, List<string> choices, List<string> ids)
         {
-            var idProperty = property.FindPropertyRelative("variableId");
+            var idProperty = property.FindPropertyRelative("_variableId");
             var node = property.serializedObject.targetObject as XNode.Node;
-            var valueType = GetExpectedValueType(node?.GetType(), property);
+            var untyped = IsUntypedReference(property);
+            var valueType = untyped ? null : GetExpectedValueType(node?.GetType(), property);
             choices.Add("<None>");
             ids.Add(string.Empty);
             var selected = 0;
 
-            if (node != null && node.graph != null && valueType != null)
+            if (node != null && node.graph != null && (untyped || valueType != null))
             {
                 var variables = node.graph.BlackboardDefinition.Variables;
                 for (var i = 0; i < variables.Count; i++)
                 {
                     var variable = variables[i];
-                    if (variable == null || variable.ValueType != valueType)
+                    if (variable == null || (!untyped && variable.ValueType != valueType))
                     {
                         continue;
                     }
 
                     ids.Add(variable.Id);
                     choices.Add(variable.Name);
+                       // ? variable.Name + " (" + BlackboardEditorPanel.TypeLabel(variable.ValueType) + ")"
+                       // : variable.Name);
                     if (variable.Id == idProperty.stringValue)
                     {
                         selected = ids.Count - 1;
@@ -94,7 +98,7 @@ namespace XNodeEditor
             return selected;
         }
 
-        static GUIContent[] Contents(List<string> choices)
+        private static GUIContent[] Contents(List<string> choices)
         {
             var contents = new GUIContent[choices.Count];
             for (var i = 0; i < choices.Count; i++)
@@ -105,7 +109,47 @@ namespace XNodeEditor
             return contents;
         }
 
-        Type GetExpectedValueType(Type nodeType, SerializedProperty property)
+        private bool IsUntypedReference(SerializedProperty property)
+        {
+            return IsNonGenericReference(fieldInfo?.FieldType) ||
+                   IsNonGenericReference(ParentFieldType(property));
+        }
+
+        private static bool IsNonGenericReference(Type fieldType)
+        {
+            if (fieldType == null)
+            {
+                return false;
+            }
+
+            if (fieldType == typeof(XNode.BlackboardVariableReference))
+            {
+                return true;
+            }
+
+            if (fieldType.IsArray)
+            {
+                return fieldType.GetElementType() == typeof(XNode.BlackboardVariableReference);
+            }
+
+            if (!fieldType.IsGenericType)
+            {
+                return false;
+            }
+
+            var arguments = fieldType.GetGenericArguments();
+            for (var i = 0; i < arguments.Length; i++)
+            {
+                if (arguments[i] == typeof(XNode.BlackboardVariableReference))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private Type GetExpectedValueType(Type nodeType, SerializedProperty property)
         {
             var fromField = GenericArgument(fieldInfo?.FieldType);
             if (fromField != null)
@@ -137,7 +181,7 @@ namespace XNodeEditor
             return null;
         }
 
-        static Type ParentFieldType(SerializedProperty property)
+        private static Type ParentFieldType(SerializedProperty property)
         {
             var path = property.propertyPath;
             var separator = path.LastIndexOf('.');
@@ -147,7 +191,7 @@ namespace XNodeEditor
             }
 
             var parent = property.serializedObject.FindProperty(path.Substring(0, separator));
-            if (parent == null || parent.propertyType != SerializedPropertyType.ManagedReference)
+            if (parent is not { propertyType: SerializedPropertyType.ManagedReference })
             {
                 return null;
             }
@@ -168,10 +212,9 @@ namespace XNodeEditor
             return null;
         }
 
-        static Type GenericArgument(Type fieldType)
+        private static Type GenericArgument(Type fieldType)
         {
-            if (fieldType == null ||
-                !fieldType.IsGenericType ||
+            if (fieldType is not { IsGenericType: true } ||
                 fieldType.GetGenericTypeDefinition() != typeof(XNode.BlackboardVariableReference<>))
             {
                 return null;
@@ -181,7 +224,7 @@ namespace XNodeEditor
             return argument.IsGenericParameter ? null : argument;
         }
 
-        static Type ResolveManagedType(string managedTypename)
+        private static Type ResolveManagedType(string managedTypename)
         {
             if (string.IsNullOrEmpty(managedTypename))
             {
